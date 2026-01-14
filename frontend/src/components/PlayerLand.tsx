@@ -169,7 +169,46 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     fetchLandData()
   }, [landId, account?.address])
 
-  // Create first land FREE
+  // Create player account (creates BOTH land and inventory)
+  const createPlayerAccount = async () => {
+    setTxStatus('Creating your farm account...')
+    const tx = new Transaction()
+    tx.moveCall({
+      target: `${PACKAGE_ID}::land::create_player_account`,
+    })
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: async (result) => {
+          const txDetails = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: { showObjectChanges: true }
+          })
+          
+          const createdLand = txDetails.objectChanges?.find(
+            (change) => change.type === 'created' && 
+            'objectType' in change && 
+            change.objectType.includes('PlayerLand')
+          )
+          
+          if (createdLand && 'objectId' in createdLand) {
+            onLandCreated?.(createdLand.objectId)
+          }
+          
+          setTxStatus('🎉 Farm account created with land and inventory!')
+          fetchUserData()
+          setTimeout(() => setTxStatus(''), 2000)
+        },
+        onError: (error) => {
+          console.error('Error creating account:', error)
+          setTxStatus('Error: ' + error.message)
+        },
+      }
+    )
+  }
+
+  // Create first land FREE (legacy, use create_player_account instead)
   const createLandOnChain = async () => {
     setTxStatus('Creating land...')
     const tx = new Transaction()
@@ -232,9 +271,9 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     )
   }
 
-  // Plant in single slot
+  // Plant in single slot (now includes inventory for auto-harvest)
   const plantInSlot = async () => {
-    if (!landId || !selectedBag || plantSlotIndex === null) return
+    if (!landId || !selectedBag || plantSlotIndex === null || !inventoryId) return
     
     setTxStatus(`🌱 Planting ${seedsToPlant} seeds in slot ${plantSlotIndex + 1}...`)
     setShowPlantModal(false)
@@ -244,6 +283,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       target: `${PACKAGE_ID}::land::plant_in_slot`,
       arguments: [
         tx.object(landId),
+        tx.object(inventoryId),
         tx.object(selectedBag),
         tx.pure.u64(plantSlotIndex),
         tx.pure.u64(seedsToPlant),
@@ -270,9 +310,9 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     )
   }
 
-  // Batch plant all empty slots
+  // Batch plant all empty slots (now includes inventory for auto-harvest)
   const plantBatch = async () => {
-    if (!landId || !selectedBag) return
+    if (!landId || !selectedBag || !inventoryId) return
     
     const emptyCount = slots.filter(s => !s.fruit).length
     if (emptyCount === 0) {
@@ -288,6 +328,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       target: `${PACKAGE_ID}::land::plant_batch`,
       arguments: [
         tx.object(landId),
+        tx.object(inventoryId),
         tx.object(selectedBag),
         tx.pure.u64(batchSeeds),
         tx.object(CLOCK_OBJECT),
@@ -348,7 +389,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     )
   }
 
-  // Harvest all ready
+  // Harvest all ready (now uses auto_harvest_all)
   const harvestAll = async () => {
     if (!landId || !inventoryId) return
     
@@ -356,7 +397,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     
     const tx = new Transaction()
     tx.moveCall({
-      target: `${PACKAGE_ID}::land::harvest_all`,
+      target: `${PACKAGE_ID}::land::auto_harvest_all`,
       arguments: [
         tx.object(landId),
         tx.object(inventoryId),
@@ -389,8 +430,8 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
   // Click on empty slot
   const handleSlotClick = (slot: Slot) => {
     if (!slot.fruit) {
-      // Empty slot - open plant modal
-      if (totalSeeds > 0 && selectedBag) {
+      // Empty slot - open plant modal (requires inventory for auto-harvest)
+      if (totalSeeds > 0 && selectedBag && inventoryId) {
         setPlantSlotIndex(slot.index)
         setSeedsToPlant(1)
         setShowPlantModal(true)
@@ -434,13 +475,13 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
         )}
       </div>
 
-      {/* No Land */}
+      {/* No Land - Use create_player_account to create both land and inventory */}
       {!landId && (
         <div className="create-land-prompt">
-          <h3>🏡 No Land Yet</h3>
-          <p>Create your first land for FREE!</p>
-          <button onClick={createLandOnChain} disabled={isPending}>
-            {isPending ? 'Creating...' : '🌱 Create Land'}
+          <h3>🏡 Welcome to Fruit Farm!</h3>
+          <p>Create your account to get started with land and inventory.</p>
+          <button onClick={createPlayerAccount} disabled={isPending}>
+            {isPending ? 'Creating...' : '🌱 Create Farm Account'}
           </button>
         </div>
       )}
@@ -448,7 +489,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       {/* Has Land */}
       {landId && (
         <>
-          {/* No Inventory */}
+          {/* No Inventory - shouldn't happen with create_player_account, but fallback */}
           {!inventoryId && (
             <div className="create-inventory-prompt">
               <p>Create inventory to store harvested fruits</p>
@@ -460,7 +501,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
 
           {/* Action Buttons */}
           <div className="land-actions">
-            {emptySlots > 0 && totalSeeds > 0 && (
+            {emptySlots > 0 && totalSeeds > 0 && inventoryId && (
               <button onClick={() => setShowBatchModal(true)} disabled={isPending}>
                 🌱 Plant All ({emptySlots} slots)
               </button>

@@ -25,6 +25,7 @@ interface GameState {
   isGameOver: boolean
   isClaiming: boolean
   dropsRemaining: number
+  claimComplete: boolean // NEW: true when claim is done, cannot drop more
 }
 
 interface FruitGameProps {
@@ -48,6 +49,7 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
     isGameOver: false,
     isClaiming: false,
     dropsRemaining: 0,
+    claimComplete: false,
   })
   const [canDrop, setCanDrop] = useState(true)
   const [txStatus, setTxStatus] = useState<string>('')
@@ -112,6 +114,7 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
             isGameOver: false,
             isClaiming: false,
             dropsRemaining: 0,
+            claimComplete: false,
           })
           setGameStarted(false) // Must click to play again
           setTxStatus(`🎉 Minted ${harvested} seeds! Click to play again.`)
@@ -143,6 +146,7 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
       isGameOver: false,
       isClaiming: false,
       dropsRemaining: 0,
+      claimComplete: false,
     })
     setNextFruit(Math.floor(Math.random() * 3))
     setGameStarted(true)
@@ -289,9 +293,11 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
   }, [])
 
   // Drop fruit locally - FREE, no transaction!
+  // KEY FIX: Cannot drop if claim is complete - must harvest or reset
   const dropFruit = useCallback(
     (x: number) => {
-      if (!engineRef.current || !canDrop || gameState.isGameOver || !gameStarted) return
+      // Block dropping if: no engine, cooldown, game over, not started, OR claim complete
+      if (!engineRef.current || !canDrop || gameState.isGameOver || !gameStarted || gameState.claimComplete) return
 
       const fruit = FRUITS[nextFruit]
       const body = Matter.Bodies.circle(x, 50, fruit.radius, {
@@ -307,9 +313,12 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
 
       // If in claiming mode, decrement drops remaining
       if (gameState.isClaiming && gameState.dropsRemaining > 0) {
+        const newDropsRemaining = gameState.dropsRemaining - 1
+        const isComplete = newDropsRemaining === 0
         setGameState(prev => ({
           ...prev,
-          dropsRemaining: prev.dropsRemaining - 1,
+          dropsRemaining: newDropsRemaining,
+          claimComplete: isComplete, // Set claim complete when drops hit 0
         }))
       }
 
@@ -317,7 +326,7 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
       setTimeout(() => setCanDrop(true), 500)
       setNextFruit(Math.floor(Math.random() * 3))
     },
-    [nextFruit, canDrop, gameState.isGameOver, gameStarted]
+    [nextFruit, canDrop, gameState.isGameOver, gameState.claimComplete, gameStarted]
   )
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -325,11 +334,18 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
       startGame()
       return
     }
+    // Block click if claim is complete (must harvest first)
+    if (gameState.claimComplete) {
+      return
+    }
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
     const x = e.clientX - rect.left
     dropFruit(x)
   }
+
+  // Determine if dropping is allowed (for cursor style)
+  const canDropNow = gameStarted && canDrop && !gameState.isGameOver && !gameState.claimComplete
 
   return (
     <div className="fruit-game">
@@ -353,8 +369,8 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
         </div>
       </div>
 
-      {/* Next Fruit Preview */}
-      {gameStarted && !gameState.isGameOver && (
+      {/* Next Fruit Preview - Hide when claim complete */}
+      {gameStarted && !gameState.isGameOver && !gameState.claimComplete && (
         <div className="next-fruit">
           <span>Next: </span>
           <span className="fruit-emoji">{FRUITS[nextFruit].emoji}</span>
@@ -366,7 +382,7 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
-          style={{ cursor: (gameStarted && canDrop && !gameState.isGameOver) ? 'pointer' : 'default' }}
+          style={{ cursor: canDropNow ? 'pointer' : 'default' }}
         />
         
         {/* Start Screen */}
@@ -416,10 +432,17 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
         )}
       </div>
 
-      {/* Claiming Mode Overlay */}
+      {/* Claiming Mode Overlay - show different message when complete */}
       {gameState.isClaiming && gameState.dropsRemaining > 0 && (
         <div className="claiming-banner">
           🎯 Drop {gameState.dropsRemaining} more fruits to claim {gameState.seedsPending} seeds!
+        </div>
+      )}
+      
+      {/* Claim Complete Banner - dropping is now blocked */}
+      {gameState.claimComplete && !gameState.isGameOver && (
+        <div className="claiming-banner complete">
+          ✅ Claim complete! {gameState.seedsPending} seeds ready to mint. Dropping is blocked until you harvest.
         </div>
       )}
 
@@ -438,8 +461,8 @@ export default function FruitGame({ onSeedsHarvested }: FruitGameProps) {
             ) : (
               <span className="hint">Connect wallet to claim seeds</span>
             )
-          ) : gameState.dropsRemaining === 0 ? (
-            // Claiming done - can mint now
+          ) : gameState.claimComplete ? (
+            // Claiming done - can mint now (dropping blocked)
             account ? (
               <button 
                 className="btn-harvest" 
