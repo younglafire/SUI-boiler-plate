@@ -592,3 +592,303 @@ button {
   color: #888;
   font-size: 0.8rem;
 }
+
+/* ============ NEW 6-SLOT LAND DESIGN ============ */
+
+.land-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.land-actions button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.land-actions button:hover {
+  transform: scale(1.05);
+}
+
+.land-actions button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 6 Slots Grid */
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  max-width: 500px;
+  margin: 1rem auto;
+}
+
+.slot {
+  aspect-ratio: 1;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-height: 140px;
+}
+
+.slot.empty {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.slot.empty:hover {
+  background: rgba(46, 204, 113, 0.2);
+  border-color: #2ecc71;
+}
+
+.slot.growing {
+  background: rgba(46, 204, 113, 0.1);
+  border: 2px solid #2ecc71;
+  animation: pulse-grow 2s ease-in-out infinite;
+}
+
+.slot.ready {
+  background: rgba(241, 196, 15, 0.2);
+  border: 2px solid #f1c40f;
+  animation: pulse-ready 1s ease-in-out infinite;
+}
+
+@keyframes pulse-ready {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.5); }
+  50% { box-shadow: 0 0 20px 5px rgba(241, 196, 15, 0.3); }
+}
+
+.slot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.slot-icon {
+  font-size: 2rem;
+}
+
+.slot-label {
+  font-size: 0.9rem;
+}
+
+.slot-ready, .slot-growing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.slot-emoji {
+  font-size: 2.5rem;
+}
+
+.slot-name {
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.slot-rarity {
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.slot-harvest {
+  font-size: 0.75rem;
+  color: #f1c40f;
+  margin-top: 0.25rem;
+}
+
+.slot-timer {
+  font-size: 1rem;
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.slot-seeds {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.growing-anim {
+  animation: wiggle 0.5s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+/* Inventory Section */
+.inventory-section {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.inventory-section h4 {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.75rem;
+}
+
+.inventory-fruit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid;
+  border-radius: 12px;
+}
+
+.inventory-fruit .fruit-emoji {
+  font-size: 1.5rem;
+}
+
+.inventory-fruit .fruit-rarity {
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.inventory-fruit .fruit-weight {
+  font-size: 0.65rem;
+  color: #888;
+}
+
+/* Create Inventory Prompt */
+.create-inventory-prompt {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.create-inventory-prompt button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f39c12, #e74c3c);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  padding: 2rem;
+  border-radius: 16px;
+  min-width: 300px;
+  max-width: 400px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal h3 {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.modal p {
+  text-align: center;
+  color: #aaa;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.modal-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.modal-input label {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.modal-input input {
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal-total {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #f39c12 !important;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.modal-actions button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.modal-actions button:first-child {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal-actions button:last-child {
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #fff;
+}
+
+.modal-actions button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}

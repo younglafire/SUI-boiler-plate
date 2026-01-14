@@ -3,7 +3,7 @@ import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@
 import { Transaction } from '@mysten/sui/transactions'
 import Matter from 'matter-js'
 
-const PACKAGE_ID = '0x81079fa7dce6562c632d0de918d7a3a3e92f8840a6fd1b073fd8edb9fcdb5f6a'
+const PACKAGE_ID = '0xe6d304e671b8fd270f8b5d978dfed1a9debd20ec20ea784e36fb872fa3a2b638'
 
 // Fruit configurations
 const FRUITS = [

@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 
-const PACKAGE_ID = '0x81079fa7dce6562c632d0de918d7a3a3e92f8840a6fd1b073fd8edb9fcdb5f6a'
+const PACKAGE_ID = '0xe6d304e671b8fd270f8b5d978dfed1a9debd20ec20ea784e36fb872fa3a2b638'
 const RANDOM_OBJECT = '0x8'
 const CLOCK_OBJECT = '0x6'
-const MAX_FRUITS = 6
+const MAX_SLOTS = 6
 const GROW_TIME_MS = 15000 // 15 seconds
 
 const FRUITS = [
@@ -25,17 +25,27 @@ const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 const RARITY_COLORS = ['#95a5a6', '#3498db', '#9b59b6', '#e74c3c', '#f39c12']
 
 interface PlantedFruit {
-  id: string
   fruitType: number
   rarity: number
   weight: number
+  seedsUsed: number
   plantedAt: number
-  isReady: boolean
+}
+
+interface Slot {
+  index: number
+  fruit: PlantedFruit | null
 }
 
 interface SeedBag {
   id: string
   seeds: number
+}
+
+interface HarvestedFruit {
+  fruitType: number
+  rarity: number
+  weight: number
 }
 
 interface PlayerLandProps {
@@ -48,14 +58,20 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
   
-  const [plantedFruits, setPlantedFruits] = useState<PlantedFruit[]>([])
-  const [seedsOnLand, setSeedsOnLand] = useState(0)
+  const [slots, setSlots] = useState<Slot[]>([])
   const [seedBags, setSeedBags] = useState<SeedBag[]>([])
   const [selectedBag, setSelectedBag] = useState<string | null>(null)
-  const [seedsToPlant, setSeedsToPlant] = useState(1)
+  const [inventoryId, setInventoryId] = useState<string | null>(null)
+  const [inventory, setInventory] = useState<HarvestedFruit[]>([])
   const [txStatus, setTxStatus] = useState('')
-  const [lands, setLands] = useState<string[]>([])
   const [currentTime, setCurrentTime] = useState(Date.now())
+  
+  // Modal states
+  const [showPlantModal, setShowPlantModal] = useState(false)
+  const [plantSlotIndex, setPlantSlotIndex] = useState<number | null>(null)
+  const [seedsToPlant, setSeedsToPlant] = useState(1)
+  const [showBatchModal, setShowBatchModal] = useState(false)
+  const [batchSeeds, setBatchSeeds] = useState(1)
 
   // Update timer every second
   useEffect(() => {
@@ -63,7 +79,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Fetch all user objects including lands
+  // Fetch all user objects
   const fetchUserData = async () => {
     if (!account?.address) return
     
@@ -74,10 +90,9 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       })
 
       const bags: SeedBag[] = []
-      const userLands: string[] = []
       
       for (const obj of objects.data) {
-        // Only use objects from CURRENT package (ignore old versions)
+        // Only use objects from CURRENT package
         if (!obj.data?.type?.includes(PACKAGE_ID)) continue
         
         if (obj.data.type.includes('SeedBag')) {
@@ -89,12 +104,20 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
             })
           }
         }
-        if (obj.data.type.includes('PlayerLand')) {
-          userLands.push(obj.data.objectId)
+        if (obj.data.type.includes('FruitInventory')) {
+          setInventoryId(obj.data.objectId)
+          const content = obj.data.content
+          if (content && 'fields' in content) {
+            const fields = content.fields as { fruits: Array<{ fields: { fruit_type: string; rarity: string; weight: string } }> }
+            setInventory((fields.fruits || []).map(f => ({
+              fruitType: Number(f.fields?.fruit_type || 1),
+              rarity: Number(f.fields?.rarity || 1),
+              weight: Number(f.fields?.weight || 100),
+            })))
+          }
         }
       }
       setSeedBags(bags)
-      setLands(userLands)
       if (bags.length > 0 && !selectedBag) {
         setSelectedBag(bags[0].id)
       }
@@ -103,7 +126,7 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     }
   }
 
-  // Fetch land data from chain
+  // Fetch land slots
   const fetchLandData = async () => {
     if (!landId) return
     
@@ -114,22 +137,27 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       })
       
       if (landObject.data?.content?.dataType === 'moveObject') {
-        const fields = landObject.data.content.fields as Record<string, unknown>
-        setSeedsOnLand(Number(fields.seeds_balance || 0))
+        const fields = landObject.data.content.fields as { slots: Array<{ fields?: { fruit_type: string; rarity: string; weight: string; seeds_used: string; planted_at: string } } | null> }
         
-        // Parse planted fruits
-        const planted = fields.planted_fruits as Array<Record<string, unknown>> || []
-        setPlantedFruits(planted.map((f, idx) => {
-          const fFields = (f.fields as Record<string, unknown>) || f
-          return {
-            id: `planted-${idx}`,
-            fruitType: Number(fFields.fruit_type || 1),
-            rarity: Number(fFields.rarity || 1),
-            weight: Number(fFields.weight || 100),
-            plantedAt: Number(fFields.planted_at || 0),
-            isReady: Boolean(fFields.is_ready || false),
+        const parsedSlots: Slot[] = []
+        for (let i = 0; i < MAX_SLOTS; i++) {
+          const slotData = fields.slots?.[i]
+          if (slotData && slotData.fields) {
+            parsedSlots.push({
+              index: i,
+              fruit: {
+                fruitType: Number(slotData.fields.fruit_type || 1),
+                rarity: Number(slotData.fields.rarity || 1),
+                weight: Number(slotData.fields.weight || 100),
+                seedsUsed: Number(slotData.fields.seeds_used || 1),
+                plantedAt: Number(slotData.fields.planted_at || 0),
+              }
+            })
+          } else {
+            parsedSlots.push({ index: i, fruit: null })
           }
-        }))
+        }
+        setSlots(parsedSlots)
       }
     } catch (error) {
       console.error('Error fetching land data:', error)
@@ -179,63 +207,12 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     )
   }
 
-  // Buy additional land for 0.01 SUI
-  const buyLandOnChain = async () => {
-    setTxStatus('Buying land for 0.01 SUI...')
-    const tx = new Transaction()
-    
-    // Split 0.01 SUI for payment
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(10_000_000)]) // 0.01 SUI
-    
-    tx.moveCall({
-      target: `${PACKAGE_ID}::land::buy_land`,
-      arguments: [coin],
-    })
-
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          const txDetails = await suiClient.waitForTransaction({
-            digest: result.digest,
-            options: { showObjectChanges: true }
-          })
-          
-          const created = txDetails.objectChanges?.find(
-            (change) => change.type === 'created' && 
-            'objectType' in change && 
-            change.objectType.includes('PlayerLand')
-          )
-          
-          if (created && 'objectId' in created) {
-            setTxStatus('🎉 New land purchased!')
-            fetchUserData()
-          }
-          setTimeout(() => setTxStatus(''), 2000)
-        },
-        onError: (error) => {
-          console.error('Error buying land:', error)
-          setTxStatus('Error: ' + error.message)
-        },
-      }
-    )
-  }
-
-  // Transfer seeds from SeedBag to Land (fixed - no amount arg)
-  const transferSeedsToLand = async () => {
-    if (!selectedBag || !landId) return
-    
-    const bag = seedBags.find(b => b.id === selectedBag)
-    if (!bag) return
-    
-    setTxStatus('Transferring seeds...')
+  // Create inventory
+  const createInventoryOnChain = async () => {
+    setTxStatus('Creating inventory...')
     const tx = new Transaction()
     tx.moveCall({
-      target: `${PACKAGE_ID}::land::transfer_seeds_from_bag`,
-      arguments: [
-        tx.object(selectedBag),
-        tx.object(landId),
-      ],
+      target: `${PACKAGE_ID}::land::create_inventory`,
     })
 
     signAndExecute(
@@ -243,34 +220,32 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       {
         onSuccess: async (result) => {
           await suiClient.waitForTransaction({ digest: result.digest })
-          setTxStatus(`✅ Transferred ${bag.seeds} seeds to land!`)
+          setTxStatus('🎒 Inventory created!')
           fetchUserData()
-          fetchLandData()
-          setTimeout(() => setTxStatus(''), 3000)
+          setTimeout(() => setTxStatus(''), 2000)
         },
         onError: (error) => {
-          console.error('Error transferring seeds:', error)
+          console.error('Error creating inventory:', error)
           setTxStatus('Error: ' + error.message)
         },
       }
     )
   }
 
-  // Plant seeds on-chain
-  const plantSeedsOnChain = async () => {
-    if (!landId || seedsToPlant <= 0 || seedsToPlant > seedsOnLand) return
-    if (plantedFruits.length >= MAX_FRUITS) {
-      setTxStatus('❌ Land is full! Max 6 fruits.')
-      setTimeout(() => setTxStatus(''), 3000)
-      return
-    }
+  // Plant in single slot
+  const plantInSlot = async () => {
+    if (!landId || !selectedBag || plantSlotIndex === null) return
     
-    setTxStatus('🌱 Planting seeds...')
+    setTxStatus(`🌱 Planting ${seedsToPlant} seeds in slot ${plantSlotIndex + 1}...`)
+    setShowPlantModal(false)
+    
     const tx = new Transaction()
     tx.moveCall({
-      target: `${PACKAGE_ID}::land::plant_seeds`,
+      target: `${PACKAGE_ID}::land::plant_in_slot`,
       arguments: [
         tx.object(landId),
+        tx.object(selectedBag),
+        tx.pure.u64(plantSlotIndex),
         tx.pure.u64(seedsToPlant),
         tx.object(CLOCK_OBJECT),
         tx.object(RANDOM_OBJECT),
@@ -281,23 +256,9 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
       { transaction: tx },
       {
         onSuccess: async (result) => {
-          const txDetails = await suiClient.waitForTransaction({
-            digest: result.digest,
-            options: { showEvents: true }
-          })
-          
-          // Parse event to get fruit info
-          const plantEvent = txDetails.events?.find(
-            e => e.type.includes('FruitPlanted')
-          )
-          
-          if (plantEvent) {
-            const parsed = plantEvent.parsedJson as Record<string, unknown>
-            setTxStatus(`🌳 Grew ${FRUITS[Number(parsed.fruit_type) - 1]?.name}! ${RARITIES[Number(parsed.rarity) - 1]}`)
-          } else {
-            setTxStatus('🌱 Seed planted!')
-          }
-          
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🌳 Seed planted!')
+          fetchUserData()
           fetchLandData()
           setTimeout(() => setTxStatus(''), 3000)
         },
@@ -309,7 +270,139 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
     )
   }
 
-  const totalBagSeeds = seedBags.reduce((acc, bag) => acc + bag.seeds, 0)
+  // Batch plant all empty slots
+  const plantBatch = async () => {
+    if (!landId || !selectedBag) return
+    
+    const emptyCount = slots.filter(s => !s.fruit).length
+    if (emptyCount === 0) {
+      setTxStatus('No empty slots!')
+      return
+    }
+    
+    setTxStatus(`🌱 Planting ${batchSeeds} seeds in ${emptyCount} slots...`)
+    setShowBatchModal(false)
+    
+    const tx = new Transaction()
+    tx.moveCall({
+      target: `${PACKAGE_ID}::land::plant_batch`,
+      arguments: [
+        tx.object(landId),
+        tx.object(selectedBag),
+        tx.pure.u64(batchSeeds),
+        tx.object(CLOCK_OBJECT),
+        tx.object(RANDOM_OBJECT),
+      ],
+    })
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus(`🌳 Planted in ${emptyCount} slots!`)
+          fetchUserData()
+          fetchLandData()
+          setTimeout(() => setTxStatus(''), 3000)
+        },
+        onError: (error) => {
+          console.error('Error batch planting:', error)
+          setTxStatus('Error: ' + error.message)
+        },
+      }
+    )
+  }
+
+  // Harvest single slot
+  const harvestSlot = async (slotIndex: number) => {
+    if (!landId || !inventoryId) return
+    
+    setTxStatus(`🌾 Harvesting slot ${slotIndex + 1}...`)
+    
+    const tx = new Transaction()
+    tx.moveCall({
+      target: `${PACKAGE_ID}::land::harvest_slot`,
+      arguments: [
+        tx.object(landId),
+        tx.object(inventoryId),
+        tx.pure.u64(slotIndex),
+        tx.object(CLOCK_OBJECT),
+      ],
+    })
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🍎 Fruit harvested!')
+          fetchUserData()
+          fetchLandData()
+          setTimeout(() => setTxStatus(''), 3000)
+        },
+        onError: (error) => {
+          console.error('Error harvesting:', error)
+          setTxStatus('Error: ' + error.message)
+        },
+      }
+    )
+  }
+
+  // Harvest all ready
+  const harvestAll = async () => {
+    if (!landId || !inventoryId) return
+    
+    setTxStatus('🌾 Harvesting all ready fruits...')
+    
+    const tx = new Transaction()
+    tx.moveCall({
+      target: `${PACKAGE_ID}::land::harvest_all`,
+      arguments: [
+        tx.object(landId),
+        tx.object(inventoryId),
+        tx.object(CLOCK_OBJECT),
+      ],
+    })
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🍎 All ready fruits harvested!')
+          fetchUserData()
+          fetchLandData()
+          setTimeout(() => setTxStatus(''), 3000)
+        },
+        onError: (error) => {
+          console.error('Error harvesting:', error)
+          setTxStatus('Error: ' + error.message)
+        },
+      }
+    )
+  }
+
+  const totalSeeds = seedBags.reduce((acc, bag) => acc + bag.seeds, 0)
+  const emptySlots = slots.filter(s => !s.fruit).length
+  const readySlots = slots.filter(s => s.fruit && currentTime >= s.fruit.plantedAt + GROW_TIME_MS).length
+
+  // Click on empty slot
+  const handleSlotClick = (slot: Slot) => {
+    if (!slot.fruit) {
+      // Empty slot - open plant modal
+      if (totalSeeds > 0 && selectedBag) {
+        setPlantSlotIndex(slot.index)
+        setSeedsToPlant(1)
+        setShowPlantModal(true)
+      }
+    } else {
+      // Has fruit - check if ready
+      const isReady = currentTime >= slot.fruit.plantedAt + GROW_TIME_MS
+      if (isReady && inventoryId) {
+        harvestSlot(slot.index)
+      }
+    }
+  }
 
   return (
     <div className="player-land">
@@ -325,10 +418,8 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
 
       {/* Seed Bags Overview */}
       <div className="seed-bags-section">
-        <h4>🌱 Your Seed Bags</h4>
-        {seedBags.length === 0 ? (
-          <p className="empty-info">No seeds yet. Play the game to earn seeds!</p>
-        ) : (
+        <h4>🌱 Your Seeds: {totalSeeds}</h4>
+        {seedBags.length > 0 && (
           <div className="seed-bags-list">
             {seedBags.map(bag => (
               <div 
@@ -336,126 +427,160 @@ export default function PlayerLand({ landId, onLandCreated }: PlayerLandProps) {
                 className={`seed-bag ${selectedBag === bag.id ? 'selected' : ''}`}
                 onClick={() => setSelectedBag(bag.id)}
               >
-                <span className="bag-emoji">🎒</span>
-                <span className="bag-seeds">{bag.seeds} seeds</span>
+                🎒 {bag.seeds}
               </div>
             ))}
-            <div className="total-seeds">
-              Total: {totalBagSeeds} seeds
-            </div>
           </div>
         )}
       </div>
 
-      {/* No Land - Create Button */}
+      {/* No Land */}
       {!landId && (
         <div className="create-land-prompt">
           <h3>🏡 No Land Yet</h3>
-          <p>Create your land to start farming!</p>
-          <button className="btn-create-land" onClick={createLandOnChain} disabled={isPending}>
-            {isPending ? 'Creating...' : '🌍 Create Land'}
+          <p>Create your first land for FREE!</p>
+          <button onClick={createLandOnChain} disabled={isPending}>
+            {isPending ? 'Creating...' : '🌱 Create Land'}
           </button>
         </div>
       )}
 
-      {/* Land Active */}
+      {/* Has Land */}
       {landId && (
         <>
-          {/* Land Stats */}
-          <div className="land-stats">
-            <div className="stat">
-              <span className="stat-label">🌱 Seeds</span>
-              <span className="stat-value">{seedsOnLand}</span>
+          {/* No Inventory */}
+          {!inventoryId && (
+            <div className="create-inventory-prompt">
+              <p>Create inventory to store harvested fruits</p>
+              <button onClick={createInventoryOnChain} disabled={isPending}>
+                {isPending ? 'Creating...' : '🎒 Create Inventory'}
+              </button>
             </div>
-            <div className="stat">
-              <span className="stat-label">🌳 Fruits</span>
-              <span className="stat-value">{plantedFruits.length}/{MAX_FRUITS}</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">🏡 Lands</span>
-              <span className="stat-value">{lands.length}</span>
-            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="land-actions">
+            {emptySlots > 0 && totalSeeds > 0 && (
+              <button onClick={() => setShowBatchModal(true)} disabled={isPending}>
+                🌱 Plant All ({emptySlots} slots)
+              </button>
+            )}
+            {readySlots > 0 && inventoryId && (
+              <button onClick={harvestAll} disabled={isPending}>
+                🌾 Harvest All ({readySlots} ready)
+              </button>
+            )}
           </div>
 
-          {/* Buy More Land */}
-          {plantedFruits.length >= MAX_FRUITS && (
-            <div className="buy-land-prompt">
-              <p>🏡 Land full! Buy more land to plant more fruits.</p>
-              <button onClick={buyLandOnChain} disabled={isPending}>
-                {isPending ? 'Buying...' : '💰 Buy Land (0.01 SUI)'}
-              </button>
-            </div>
-          )}
-
-          {/* Transfer Seeds from Bag to Land */}
-          {seedBags.length > 0 && selectedBag && (
-            <div className="transfer-controls">
-              <button onClick={transferSeedsToLand} disabled={isPending}>
-                {isPending ? 'Transferring...' : `📦 Transfer Seeds to Land`}
-              </button>
-            </div>
-          )}
-
-          {/* Plant Seeds Control */}
-          {seedsOnLand > 0 && (
-            <div className="plant-controls">
-              <h4>🌱 Plant Seeds</h4>
-              <div className="control-row">
-                <input
-                  type="number"
-                  min="1"
-                  max={seedsOnLand}
-                  value={seedsToPlant}
-                  onChange={(e) => setSeedsToPlant(Math.max(1, Math.min(seedsOnLand, parseInt(e.target.value) || 1)))}
-                />
-                <button onClick={plantSeedsOnChain} disabled={isPending || seedsOnLand < 1}>
-                  {isPending ? 'Planting...' : '🌱 Plant'}
-                </button>
-              </div>
-              <small>💡 More seeds = higher chance for rare fruits!</small>
-            </div>
-          )}
-
-          {/* Planted Fruits Grid */}
-          <div className="planted-section">
-            <h4>🌳 Your Fruits ({plantedFruits.length}/{MAX_FRUITS})</h4>
-            <div className="planted-grid">
-              {plantedFruits.length === 0 ? (
-                <p className="empty-info">No fruits yet. Plant some seeds!</p>
-              ) : (
-                plantedFruits.map((fruit) => {
-                  const timeSincePlant = currentTime - fruit.plantedAt
-                  const isGrowing = fruit.plantedAt > 0 && timeSincePlant < GROW_TIME_MS
-                  const timeLeft = Math.max(0, Math.ceil((GROW_TIME_MS - timeSincePlant) / 1000))
-                  
-                  return (
-                    <div
-                      key={fruit.id}
-                      className={`planted-fruit ${isGrowing ? 'growing' : 'ready'}`}
-                      style={{ borderColor: RARITY_COLORS[fruit.rarity - 1] }}
-                    >
-                      {isGrowing ? (
-                        <>
-                          <span className="fruit-emoji growing-emoji">🌱</span>
-                          <span className="grow-timer">⏱️ {timeLeft}s</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="fruit-emoji">{FRUITS[fruit.fruitType - 1]?.emoji || '🍎'}</span>
-                          <span className="fruit-name">{FRUITS[fruit.fruitType - 1]?.name || 'Fruit'}</span>
-                          <span className="fruit-rarity" style={{ color: RARITY_COLORS[fruit.rarity - 1] }}>
-                            {RARITIES[fruit.rarity - 1]}
-                          </span>
-                          <span className="fruit-weight">{fruit.weight}g</span>
-                        </>
-                      )}
+          {/* 6 Slots Grid */}
+          <div className="slots-grid">
+            {slots.map((slot) => {
+              const isReady = slot.fruit && currentTime >= slot.fruit.plantedAt + GROW_TIME_MS
+              const timeLeft = slot.fruit ? Math.max(0, Math.ceil((slot.fruit.plantedAt + GROW_TIME_MS - currentTime) / 1000)) : 0
+              
+              return (
+                <div
+                  key={slot.index}
+                  className={`slot ${!slot.fruit ? 'empty' : isReady ? 'ready' : 'growing'}`}
+                  onClick={() => handleSlotClick(slot)}
+                >
+                  {!slot.fruit ? (
+                    <div className="slot-empty">
+                      <span className="slot-icon">➕</span>
+                      <span className="slot-label">Plant</span>
                     </div>
-                  )
-                })
-              )}
+                  ) : isReady ? (
+                    <div className="slot-ready">
+                      <span className="slot-emoji">{FRUITS[slot.fruit.fruitType - 1]?.emoji || '🍎'}</span>
+                      <span className="slot-name">{FRUITS[slot.fruit.fruitType - 1]?.name}</span>
+                      <span className="slot-rarity" style={{ color: RARITY_COLORS[slot.fruit.rarity - 1] }}>
+                        {RARITIES[slot.fruit.rarity - 1]}
+                      </span>
+                      <span className="slot-harvest">🌾 Tap to Harvest</span>
+                    </div>
+                  ) : (
+                    <div className="slot-growing">
+                      <span className="slot-emoji growing-anim">🌱</span>
+                      <span className="slot-timer">⏱️ {timeLeft}s</span>
+                      <span className="slot-seeds">{slot.fruit.seedsUsed} seeds</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Inventory Section */}
+          {inventoryId && inventory.length > 0 && (
+            <div className="inventory-section">
+              <h4>🎒 Your Inventory ({inventory.length} fruits)</h4>
+              <div className="inventory-grid">
+                {inventory.map((fruit, idx) => (
+                  <div key={idx} className="inventory-fruit" style={{ borderColor: RARITY_COLORS[fruit.rarity - 1] }}>
+                    <span className="fruit-emoji">{FRUITS[fruit.fruitType - 1]?.emoji || '🍎'}</span>
+                    <span className="fruit-rarity" style={{ color: RARITY_COLORS[fruit.rarity - 1] }}>
+                      {RARITIES[fruit.rarity - 1]}
+                    </span>
+                    <span className="fruit-weight">{fruit.weight}g</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Plant Single Modal */}
+      {showPlantModal && (
+        <div className="modal-overlay" onClick={() => setShowPlantModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🌱 Plant in Slot {(plantSlotIndex ?? 0) + 1}</h3>
+            <p>More seeds = higher chance for rare fruits!</p>
+            <div className="modal-input">
+              <label>Seeds to plant:</label>
+              <input
+                type="number"
+                min="1"
+                max={seedBags.find(b => b.id === selectedBag)?.seeds || 1}
+                value={seedsToPlant}
+                onChange={(e) => setSeedsToPlant(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowPlantModal(false)}>Cancel</button>
+              <button onClick={plantInSlot} disabled={isPending || totalSeeds < seedsToPlant}>
+                🌱 Plant
+              </button>
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Batch Plant Modal */}
+      {showBatchModal && (
+        <div className="modal-overlay" onClick={() => setShowBatchModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🌱 Plant All Empty Slots</h3>
+            <p>Plant in {emptySlots} empty slots</p>
+            <div className="modal-input">
+              <label>Seeds per slot:</label>
+              <input
+                type="number"
+                min="1"
+                max={Math.floor(totalSeeds / emptySlots)}
+                value={batchSeeds}
+                onChange={(e) => setBatchSeeds(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <p className="modal-total">Total: {batchSeeds * emptySlots} seeds</p>
+            <div className="modal-actions">
+              <button onClick={() => setShowBatchModal(false)}>Cancel</button>
+              <button onClick={plantBatch} disabled={isPending || totalSeeds < batchSeeds * emptySlots}>
+                🌱 Plant All
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

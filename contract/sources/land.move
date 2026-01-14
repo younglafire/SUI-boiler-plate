@@ -1,224 +1,293 @@
-// Player Land Module - Farming mechanics
+// Player Land Module - Farming mechanics with 6 slots
 // SPDX-License-Identifier: Apache-2.0
 
 module contract::land {
     use sui::random::{Random, new_generator};
-    use sui::sui::SUI;
-    use sui::coin::{Self, Coin};
     use sui::clock::Clock;
     use contract::types;
     use contract::events;
-    use contract::game::{Self, GameSession, SeedBag};
+    use contract::game::{Self, SeedBag};
 
     // ============ CONSTANTS ============
-    const MAX_FRUITS_PER_LAND: u64 = 6;
-    const LAND_PRICE: u64 = 10_000_000; // 0.01 SUI = 10,000,000 MIST
+    const MAX_SLOTS: u64 = 6;
     const GROW_TIME_MS: u64 = 15_000; // 15 seconds
 
     // ============ ERRORS ============
-    const ELandFull: u64 = 100;
-    const EFruitNotReady: u64 = 101;
-    const EInsufficientPayment: u64 = 102;
+    const ESlotOccupied: u64 = 100;
+    const ESlotEmpty: u64 = 101;
+    const EFruitNotReady: u64 = 102;
+    const EInvalidSlot: u64 = 103;
+    const EInsufficientSeeds: u64 = 104;
 
     // ============ STRUCTS ============
 
-    /// Player's Land for planting seeds
+    /// Player's Land with 6 planting slots
     public struct PlayerLand has key, store {
         id: UID,
         owner: address,
-        seeds_balance: u64,
-        planted_fruits: vector<PlantedFruit>,
+        slots: vector<Option<PlantedFruit>>, // 6 slots, None = empty
     }
 
-    /// A planted fruit growing on land
+    /// A planted fruit growing in a slot
     public struct PlantedFruit has store, copy, drop {
         fruit_type: u8,
         rarity: u8,      // 1-5 (common to legendary)
         weight: u64,     // Random weight in grams
+        seeds_used: u64, // Seeds invested
         planted_at: u64, // Timestamp in ms when planted
-        is_ready: bool,  // True when grow time passed
+    }
+
+    /// Player's fruit inventory (harvested fruits)
+    public struct FruitInventory has key, store {
+        id: UID,
+        owner: address,
+        fruits: vector<HarvestedFruit>,
+    }
+
+    /// A harvested fruit in inventory
+    public struct HarvestedFruit has store, copy, drop {
+        fruit_type: u8,
+        rarity: u8,
+        weight: u64,
     }
 
     // ============ LAND FUNCTIONS ============
 
-    /// Create first land for FREE
+    /// Create land with 6 empty slots (FREE)
     entry fun create_land(ctx: &mut TxContext) {
+        let mut slots = vector::empty<Option<PlantedFruit>>();
+        let mut i = 0;
+        while (i < MAX_SLOTS) {
+            slots.push_back(option::none());
+            i = i + 1;
+        };
+
         let land = PlayerLand {
             id: object::new(ctx),
             owner: ctx.sender(),
-            seeds_balance: 0,
-            planted_fruits: vector::empty(),
+            slots,
         };
         
         events::emit_land_created(object::id(&land), ctx.sender());
         transfer::transfer(land, ctx.sender());
     }
 
-    /// Buy additional land for 0.01 SUI
-    entry fun buy_land(
-        payment: Coin<SUI>,
-        ctx: &mut TxContext
-    ) {
-        assert!(coin::value(&payment) >= LAND_PRICE, EInsufficientPayment);
-        
-        // Burn the payment (in production, send to treasury)
-        transfer::public_transfer(payment, @0x0);
-        
-        let land = PlayerLand {
+    /// Create fruit inventory
+    entry fun create_inventory(ctx: &mut TxContext) {
+        let inventory = FruitInventory {
             id: object::new(ctx),
             owner: ctx.sender(),
-            seeds_balance: 0,
-            planted_fruits: vector::empty(),
+            fruits: vector::empty(),
         };
-        
-        events::emit_land_created(object::id(&land), ctx.sender());
-        transfer::transfer(land, ctx.sender());
+        transfer::transfer(inventory, ctx.sender());
     }
 
-    /// Transfer seeds from game session to land
-    entry fun transfer_seeds_to_land(
-        session: &mut GameSession,
+    /// Plant seeds in a specific slot (uses seeds from bag)
+    entry fun plant_in_slot(
         land: &mut PlayerLand,
-        amount: u64,
-        _ctx: &mut TxContext
-    ) {
-        // Deduct from game session
-        game::deduct_seeds(session, amount);
-        
-        // Add to land
-        land.seeds_balance = land.seeds_balance + amount;
-        
-        events::emit_seeds_transferred(game::id(session), object::id(land), amount);
-    }
-
-    /// Transfer ALL seeds from SeedBag to land (consumes the bag)
-    entry fun transfer_seeds_from_bag(
-        bag: SeedBag,
-        land: &mut PlayerLand,
-        _ctx: &mut TxContext
-    ) {
-        let seeds = game::consume_seed_bag(bag);
-        land.seeds_balance = land.seeds_balance + seeds;
-    }
-
-    /// Plant seeds to grow fruit with random rarity (limit 6 per land)
-    entry fun plant_seeds(
-        land: &mut PlayerLand,
-        seeds_to_plant: u64,
+        bag: &mut SeedBag,
+        slot_index: u64,
+        seeds_to_use: u64,
         clock: &Clock,
         r: &Random,
         ctx: &mut TxContext
     ) {
-        // Check land is not full
-        assert!(land.planted_fruits.length() < MAX_FRUITS_PER_LAND, ELandFull);
-        assert!(land.seeds_balance >= seeds_to_plant, types::err_insufficient_seeds());
+        // Validate slot
+        assert!(slot_index < MAX_SLOTS, EInvalidSlot);
+        assert!(option::is_none(land.slots.borrow(slot_index)), ESlotOccupied);
+        assert!(game::get_bag_seeds(bag) >= seeds_to_use, EInsufficientSeeds);
+        assert!(seeds_to_use > 0, EInsufficientSeeds);
         
-        land.seeds_balance = land.seeds_balance - seeds_to_plant;
+        // Spend seeds from bag
+        game::spend_seeds(bag, seeds_to_use);
         
+        // Generate random fruit
         let mut generator = new_generator(r, ctx);
-        
-        // Random fruit type (1-10)
         let fruit_type = sui::random::generate_u8_in_range(&mut generator, 1, 10);
-        
-        // Random rarity (1-5), weighted by seeds planted
         let rarity_roll = sui::random::generate_u64_in_range(&mut generator, 1, 100);
-        let rarity = calculate_rarity(rarity_roll, seeds_to_plant);
-        
-        // Random weight, influenced by seeds and rarity
+        let rarity = calculate_rarity(rarity_roll, seeds_to_use);
         let base_weight = sui::random::generate_u64_in_range(&mut generator, 100, 500);
-        let weight = base_weight + (seeds_to_plant * 5) + ((rarity as u64) * 50);
+        let weight = base_weight + (seeds_to_use * 5) + ((rarity as u64) * 50);
         
-        // Get current timestamp
         let now = sui::clock::timestamp_ms(clock);
         
         let planted = PlantedFruit {
             fruit_type,
             rarity,
             weight,
+            seeds_used: seeds_to_use,
             planted_at: now,
-            is_ready: false,
         };
         
-        land.planted_fruits.push_back(planted);
+        // Place in slot
+        *land.slots.borrow_mut(slot_index) = option::some(planted);
         
         events::emit_fruit_planted(object::id(land), fruit_type, rarity, weight);
     }
 
-    /// Check and mark fruits as ready (after 15s grow time)
-    entry fun check_fruits_ready(
+    /// Plant in multiple slots at once (batch plant)
+    entry fun plant_batch(
         land: &mut PlayerLand,
+        bag: &mut SeedBag,
+        seeds_per_slot: u64,
         clock: &Clock,
-        _ctx: &mut TxContext
+        r: &Random,
+        ctx: &mut TxContext
     ) {
+        assert!(seeds_per_slot > 0, EInsufficientSeeds);
+        
+        // Count empty slots
+        let mut empty_count = 0u64;
+        let mut i = 0u64;
+        while (i < MAX_SLOTS) {
+            if (option::is_none(land.slots.borrow(i))) {
+                empty_count = empty_count + 1;
+            };
+            i = i + 1;
+        };
+        
+        // Check we have enough seeds
+        let total_seeds = empty_count * seeds_per_slot;
+        assert!(game::get_bag_seeds(bag) >= total_seeds, EInsufficientSeeds);
+        
+        // Plant in all empty slots
+        let mut generator = new_generator(r, ctx);
         let now = sui::clock::timestamp_ms(clock);
-        let len = land.planted_fruits.length();
-        let mut i = 0;
-        while (i < len) {
-            let fruit = land.planted_fruits.borrow_mut(i);
-            if (!fruit.is_ready && now >= fruit.planted_at + GROW_TIME_MS) {
-                fruit.is_ready = true;
+        
+        i = 0;
+        while (i < MAX_SLOTS) {
+            if (option::is_none(land.slots.borrow(i))) {
+                // Spend seeds
+                game::spend_seeds(bag, seeds_per_slot);
+                
+                // Generate random fruit
+                let fruit_type = sui::random::generate_u8_in_range(&mut generator, 1, 10);
+                let rarity_roll = sui::random::generate_u64_in_range(&mut generator, 1, 100);
+                let rarity = calculate_rarity(rarity_roll, seeds_per_slot);
+                let base_weight = sui::random::generate_u64_in_range(&mut generator, 100, 500);
+                let weight = base_weight + (seeds_per_slot * 5) + ((rarity as u64) * 50);
+                
+                let planted = PlantedFruit {
+                    fruit_type,
+                    rarity,
+                    weight,
+                    seeds_used: seeds_per_slot,
+                    planted_at: now,
+                };
+                
+                *land.slots.borrow_mut(i) = option::some(planted);
+                
+                events::emit_fruit_planted(object::id(land), fruit_type, rarity, weight);
             };
             i = i + 1;
         };
     }
 
-    /// Add seeds directly to land (for testing/rewards)
-    entry fun add_seeds(
+    /// Harvest a ready fruit from slot → goes to inventory
+    entry fun harvest_slot(
         land: &mut PlayerLand,
-        amount: u64,
+        inventory: &mut FruitInventory,
+        slot_index: u64,
+        clock: &Clock,
         _ctx: &mut TxContext
     ) {
-        land.seeds_balance = land.seeds_balance + amount;
+        assert!(slot_index < MAX_SLOTS, EInvalidSlot);
+        assert!(option::is_some(land.slots.borrow(slot_index)), ESlotEmpty);
+        
+        let fruit = option::borrow(land.slots.borrow(slot_index));
+        let now = sui::clock::timestamp_ms(clock);
+        assert!(now >= fruit.planted_at + GROW_TIME_MS, EFruitNotReady);
+        
+        // Extract fruit data before clearing slot
+        let harvested = HarvestedFruit {
+            fruit_type: fruit.fruit_type,
+            rarity: fruit.rarity,
+            weight: fruit.weight,
+        };
+        
+        // Clear slot
+        *land.slots.borrow_mut(slot_index) = option::none();
+        
+        // Add to inventory
+        inventory.fruits.push_back(harvested);
+        
+        events::emit_fruit_harvested(
+            object::id(land), 
+            harvested.fruit_type, 
+            harvested.rarity,
+            harvested.weight
+        );
+    }
+
+    /// Harvest all ready fruits at once
+    entry fun harvest_all(
+        land: &mut PlayerLand,
+        inventory: &mut FruitInventory,
+        clock: &Clock,
+        _ctx: &mut TxContext
+    ) {
+        let now = sui::clock::timestamp_ms(clock);
+        
+        let mut i = 0u64;
+        while (i < MAX_SLOTS) {
+            if (option::is_some(land.slots.borrow(i))) {
+                let fruit = option::borrow(land.slots.borrow(i));
+                if (now >= fruit.planted_at + GROW_TIME_MS) {
+                    let harvested = HarvestedFruit {
+                        fruit_type: fruit.fruit_type,
+                        rarity: fruit.rarity,
+                        weight: fruit.weight,
+                    };
+                    
+                    *land.slots.borrow_mut(i) = option::none();
+                    inventory.fruits.push_back(harvested);
+                    
+                    events::emit_fruit_harvested(
+                        object::id(land), 
+                        harvested.fruit_type, 
+                        harvested.rarity,
+                        harvested.weight
+                    );
+                };
+            };
+            i = i + 1;
+        };
     }
 
     // ============ HELPER FUNCTIONS ============
 
-    /// Calculate rarity based on roll and seeds planted
-    /// More seeds = better chance for rare
     fun calculate_rarity(roll: u64, seeds_planted: u64): u8 {
-        let bonus = seeds_planted / 2; // Every 2 seeds = +1% for higher rarity
+        let bonus = seeds_planted / 2;
         let adjusted_roll = if (roll + bonus > 100) { 100 } else { roll + bonus };
         
         if (adjusted_roll <= 50) {
-            types::common()      // 50% base
+            types::common()
         } else if (adjusted_roll <= 75) {
-            types::uncommon()    // 25% base
+            types::uncommon()
         } else if (adjusted_roll <= 90) {
-            types::rare()        // 15% base
+            types::rare()
         } else if (adjusted_roll <= 98) {
-            types::epic()        // 8% base
+            types::epic()
         } else {
-            types::legendary()   // 2% base
+            types::legendary()
         }
     }
 
     // ============ VIEW FUNCTIONS ============
 
-    public fun get_seeds_balance(land: &PlayerLand): u64 {
-        land.seeds_balance
-    }
-
-    public fun get_planted_count(land: &PlayerLand): u64 {
-        land.planted_fruits.length()
+    public fun get_slot(land: &PlayerLand, index: u64): &Option<PlantedFruit> {
+        land.slots.borrow(index)
     }
 
     public fun get_owner(land: &PlayerLand): address {
         land.owner
     }
 
-    public fun get_planted_fruit(land: &PlayerLand, index: u64): &PlantedFruit {
-        land.planted_fruits.borrow(index)
+    public fun get_inventory_count(inv: &FruitInventory): u64 {
+        inv.fruits.length()
     }
 
-    public fun get_fruit_type(fruit: &PlantedFruit): u8 {
-        fruit.fruit_type
-    }
-
-    public fun get_fruit_rarity(fruit: &PlantedFruit): u8 {
-        fruit.rarity
-    }
-
-    public fun get_fruit_weight(fruit: &PlantedFruit): u64 {
-        fruit.weight
+    public fun get_inventory_fruit(inv: &FruitInventory, index: u64): &HarvestedFruit {
+        inv.fruits.borrow(index)
     }
 }

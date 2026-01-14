@@ -66,6 +66,8 @@ module contract::events {
     public struct FruitHarvested has copy, drop {
         land_id: ID,
         fruit_type: u8,
+        rarity: u8,
+        weight: u64,
     }
 
     public struct SeedsMinted has copy, drop {
@@ -127,6 +129,15 @@ module contract::events {
         weight: u64
     ) {
         event::emit(FruitPlanted { land_id, fruit_type, rarity, weight });
+    }
+
+    public fun emit_fruit_harvested(
+        land_id: ID,
+        fruit_type: u8,
+        rarity: u8,
+        weight: u64
+    ) {
+        event::emit(FruitHarvested { land_id, fruit_type, rarity, weight });
     }
 
     public fun emit_seeds_minted(player: address, amount: u64) {
