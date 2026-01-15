@@ -49,7 +49,6 @@ function App() {
       let foundLand: string | null = null
 
       for (const obj of objects.data) {
-        // Only use objects from CURRENT package
         if (obj.data?.type?.includes(PACKAGE_ID)) {
           if (obj.data.type.includes('PlayerAccount')) {
             foundAccount = obj.data.objectId
@@ -63,7 +62,6 @@ function App() {
         }
       }
       
-      // Get SEED coin balance from wallet
       const seedBalance = await suiClient.getBalance({
         owner: account.address,
         coinType: SEED_COIN_TYPE,
@@ -117,93 +115,102 @@ function App() {
 
   return (
     <div className="app">
-      {/* Header */}
-      <header className="app-header">
-        <h1>🍉 SUI Fruit Merge</h1>
-        <div className="header-right">
-          {playerSeeds >= 0 && (
-            <span className="total-harvested">🌱 Seeds: {playerSeeds}</span>
-          )}
-          <ConnectButton />
-        </div>
-      </header>
+      <div className="floating-fruits">
+            <span className="fruit-1">🍎</span>
+            <span className="fruit-2">🍇</span>
+            <span className="fruit-3">🍋</span>
+          </div>
+      {!account ? (
+        /* --- LANDING PAGE (Pre-connection) --- */
+        <div className="landing-page">
+          <div className="landing-content">
+            <div className="badge">SUI NETWORK • TESTNET</div>
+            <h1 className="hero-title">🍉 FRUIT MERGE <span>V2.0</span></h1>
+            <p className="hero-subtitle">
+              The most addictive Merge-to-Earn game on the Sui ecosystem. 
+              Merge fruits, harvest seeds, and build your own digital farm.
+            </p>
+            
+            <div className="features-preview">
+              <div className="f-item"><span>🎮</span> Play Game</div>
+              <div className="f-item"><span>🌱</span> Earn Seeds</div>
+              <div className="f-item"><span>🏡</span> Expand Farm</div>
+            </div>
 
-      {/* Status Banner */}
+            <div className="big-connect-wrapper">
+              <ConnectButton />
+              <p className="cta-hint">Connect your Sui wallet to start your journey</p>
+            </div>
+          </div>
+          
+          
+        </div>
+      ) : (
+        /* --- GAME INTERFACE (Post-connection) --- */
+        <>
+          <header className="app-header">
+            <div className="header-left">
+              <h1>FRUIT MERGE</h1>
+            </div>
+
+            <nav className="header-nav">
+              <button 
+                className={activeTab === 'game' ? 'active' : ''} 
+                onClick={() => setActiveTab('game')}
+              >
+                🎮 GAME
+              </button>
+              <button 
+                className={activeTab === 'land' ? 'active' : ''} 
+                onClick={() => setActiveTab('land')}
+              >
+                🌍 FARM
+              </button>
+            </nav>
+
+            <div className="header-right">
+              <div className="total-harvested">
+                🌱 {playerSeeds.toLocaleString()} SEEDS
+              </div>
+              <ConnectButton />
+            </div>
+          </header>
+
+          <main className="app-main">
+            {activeTab === 'game' ? (
+              <div className="game-container">
+                <FruitGame 
+                  playerAccountId={playerAccountId ?? undefined} 
+                  onSeedsHarvested={handleSeedsHarvested} 
+                />
+              </div>
+            ) : (
+              <div className="land-container">
+                <PlayerLand 
+                  playerAccountId={playerAccountId} 
+                  playerInventoryId={playerInventoryId}
+                  landId={landId} 
+                  playerSeeds={playerSeeds} 
+                  onDataChanged={loadUserObjects} 
+                />
+              </div>
+            )}
+          </main>
+        </>
+      )}
+
+      {/* Footer Info */}
+      <footer style={{padding: '20px', textAlign: 'center', opacity: 0.5, fontSize: '0.7rem'}}>
+        SUI NETWORK • TESTNET • V2.0
+      </footer>
+
+      {/* Transaction Status Toast */}
       {txStatus && (
-        <div className="tx-banner">
+        <div className="tx-status">
           {isPending && <span className="spinner">⏳</span>}
           {txStatus}
         </div>
       )}
-
-      {/* Main content */}
-      <main className="app-main">
-        {/* Create Account Prompt - for new players */}
-        {account && !playerAccountId && (
-          <div className="create-account-banner">
-            <h3>👋 Welcome to SUI Fruit Merge!</h3>
-            <p>Create your player account to save seeds and farm!</p>
-            <button onClick={createPlayerAccount} disabled={isPending}>
-              {isPending ? '⏳ Creating...' : '🎮 Create Player Account'}
-            </button>
-          </div>
-        )}
-
-        {/* Tab Navigation */}
-        <nav className="tab-nav">
-          <button
-            className={activeTab === 'game' ? 'active' : ''}
-            onClick={() => setActiveTab('game')}
-          >
-            🎮 Game
-          </button>
-          <button
-            className={activeTab === 'land' ? 'active' : ''}
-            onClick={() => setActiveTab('land')}
-          >
-            🌍 Land
-          </button>
-        </nav>
-
-        {/* Game Tab - ALWAYS playable */}
-        {activeTab === 'game' && (
-          <div className="game-container">
-            <FruitGame
-              playerAccountId={playerAccountId ?? undefined}
-              onSeedsHarvested={handleSeedsHarvested}
-            />
-          </div>
-        )}
-
-        {/* Land Tab */}
-        {activeTab === 'land' && (
-          <div className="land-container">
-            {account ? (
-              <PlayerLand
-                playerAccountId={playerAccountId}
-                playerInventoryId={playerInventoryId}
-                landId={landId}
-                playerSeeds={playerSeeds}
-                onDataChanged={loadUserObjects}
-              />
-            ) : (
-              <div className="connect-prompt-small">
-                <p>🔗 Connect wallet to manage your land</p>
-                <ConnectButton />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Blockchain Info */}
-        <div className="blockchain-info">
-          <small>
-            📦 Package: <a href={`https://suiscan.xyz/testnet/object/${PACKAGE_ID}`} target="_blank" rel="noopener noreferrer">
-              {PACKAGE_ID.slice(0, 10)}...
-            </a>
-          </small>
-        </div>
-      </main>
     </div>
   )
 }
