@@ -5,18 +5,21 @@ import Matter from 'matter-js'
 
 const PACKAGE_ID = '0xa99401dc6d117667a13b8c923954fbb7b3726bedb47440699ebc23e9ebb9377b'
 
-// Fruit configurations
+// Pinata IPFS gateway base URL
+const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs'
+
+// Fruit configurations with IPFS images
 const FRUITS = [
-  { level: 1, emoji: '🍒', radius: 20, color: '#e74c3c', name: 'Cherry' },
-  { level: 2, emoji: '🍇', radius: 25, color: '#9b59b6', name: 'Grape' },
-  { level: 3, emoji: '🍊', radius: 30, color: '#e67e22', name: 'Orange' },
-  { level: 4, emoji: '🍋', radius: 35, color: '#f1c40f', name: 'Lemon' },
-  { level: 5, emoji: '🍎', radius: 40, color: '#c0392b', name: 'Apple' },
-  { level: 6, emoji: '🍐', radius: 45, color: '#27ae60', name: 'Pear' },
-  { level: 7, emoji: '🍑', radius: 50, color: '#fd79a8', name: 'Peach' },
-  { level: 8, emoji: '🍍', radius: 55, color: '#fdcb6e', name: 'Pineapple' },
-  { level: 9, emoji: '🍈', radius: 60, color: '#00b894', name: 'Melon' },
-  { level: 10, emoji: '🍉', radius: 70, color: '#55a3a3', name: 'Watermelon' },
+  { level: 1, image: `${IPFS_GATEWAY}/bafkreicydu6guwunucel3v5miduloc62s5pjsyirh5pxw5zjrnzcgdsap4`, radius: 20, color: '#e74c3c', name: 'Cherry' },
+  { level: 2, image: `${IPFS_GATEWAY}/bafkreifvpkhlj53igt66rcyzylffbfbcdl7nqfqypxdjrxvhpwl3rmpgu4`, radius: 25, color: '#9b59b6', name: 'Grape' },
+  { level: 3, image: `${IPFS_GATEWAY}/bafkreibenssqrrj3ctd6bfuycn66ozwrtzt23b3atwegjnt5wkqcnfrndi`, radius: 30, color: '#e67e22', name: 'Orange' },
+  { level: 4, image: `${IPFS_GATEWAY}/bafkreiarh47cw5m442fh76qkaws23uk7ztte5wyswqi2qnbgje5pkrcfme`, radius: 35, color: '#f1c40f', name: 'Lemon' },
+  { level: 5, image: `${IPFS_GATEWAY}/bafkreibz6wuhdung3neha7jyyf7323qgjrtsvi3y5bixqtk32hawzvf35i`, radius: 40, color: '#c0392b', name: 'Apple' },
+  { level: 6, image: `${IPFS_GATEWAY}/bafkreifkvji2k4oyyxo3fyggkn5dvbuouvip765jk5kfa6ewt37tqkwda4`, radius: 45, color: '#27ae60', name: 'Pear' },
+  { level: 7, image: `${IPFS_GATEWAY}/bafkreihz77f36frdk7nq332g7zblwt2ctca4cvrr53awr6rybtlp56ohvy`, radius: 50, color: '#fd79a8', name: 'Peach' },
+  { level: 8, image: `${IPFS_GATEWAY}/bafkreigkdamx6cylhgcthhrhx5p4rb4otkybrhyvsprvk2huyrnxrm2uya`, radius: 55, color: '#fdcb6e', name: 'Pineapple' },
+  { level: 9, image: `${IPFS_GATEWAY}/bafkreifefcjgleils74ujmmjlqakteiwaiotxc4sioeyrkkeul6wmqfka4`, radius: 60, color: '#00b894', name: 'Melon' },
+  { level: 10, image: `${IPFS_GATEWAY}/bafybeib4oogwh4auyotbqfcp4bxj4qcjw4xq5htpuafbyjeifuu3dcfkha`, radius: 70, color: '#55a3a3', name: 'Watermelon' },
 ]
 
 interface GameState {
@@ -318,7 +321,7 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       {gameStarted && !gameState.isGameOver && (
         <div className="next-fruit">
           <span>Next: </span>
-          <span className="fruit-emoji">{FRUITS[nextFruit].emoji}</span>
+          <img src={FRUITS[nextFruit].image} alt={FRUITS[nextFruit].name} className="fruit-img-preview" />
         </div>
       )}
 
@@ -391,10 +394,10 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       {/* Fruit Legend */}
       <div className="fruit-legend">
         {FRUITS.slice(0, 5).map((f) => (
-          <span key={f.level} title={`${f.name} (Lv${f.level})`}>{f.emoji}</span>
+          <img key={f.level} src={f.image} alt={f.name} title={`${f.name} (Lv${f.level})`} className="fruit-img-legend" />
         ))}
         <span>→</span>
-        <span title="Watermelon (Lv10)">🍉</span>
+        <img src={FRUITS[9].image} alt="Watermelon" title="Watermelon (Lv10)" className="fruit-img-legend" />
       </div>
     </div>
   )

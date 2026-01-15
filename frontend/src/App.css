@@ -275,6 +275,33 @@ body {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 8px;
   font-size: 1.2rem;
+  align-items: center;
+}
+
+.fruit-img-legend {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.fruit-img-preview {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* Slot Fruit Images */
+.slot-fruit-img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+
+/* Inventory Fruit Images */
+.inventory-fruit-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 /* Player Land */
