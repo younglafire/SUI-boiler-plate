@@ -8,24 +8,56 @@ const PACKAGE_ID = '0xa99401dc6d117667a13b8c923954fbb7b3726bedb47440699ebc23e9eb
 // Pinata IPFS gateway base URL
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs'
 
-// Fruit configurations with IPFS images
+// Game constants
+const GAME_WIDTH = 400
+const GAME_HEIGHT = 600
+const WALL_THICKNESS = 20
+const PREVIEW_BALL_Y = 50
+const LOSE_HEIGHT = 100
+const DROP_COOLDOWN = 500
+
+// Physics settings (like the reference game)
+const FRICTION = {
+  friction: 0.006,
+  frictionStatic: 0.006,
+  frictionAir: 0,
+  restitution: 0.1,
+}
+
+// Fruit configurations with IPFS images - radius scaled smaller
 const FRUITS = [
-  { level: 1, image: `${IPFS_GATEWAY}/bafkreicydu6guwunucel3v5miduloc62s5pjsyirh5pxw5zjrnzcgdsap4`, radius: 20, color: '#e74c3c', name: 'Cherry' },
-  { level: 2, image: `${IPFS_GATEWAY}/bafkreifvpkhlj53igt66rcyzylffbfbcdl7nqfqypxdjrxvhpwl3rmpgu4`, radius: 25, color: '#9b59b6', name: 'Grape' },
-  { level: 3, image: `${IPFS_GATEWAY}/bafkreibenssqrrj3ctd6bfuycn66ozwrtzt23b3atwegjnt5wkqcnfrndi`, radius: 30, color: '#e67e22', name: 'Orange' },
-  { level: 4, image: `${IPFS_GATEWAY}/bafkreiarh47cw5m442fh76qkaws23uk7ztte5wyswqi2qnbgje5pkrcfme`, radius: 35, color: '#f1c40f', name: 'Lemon' },
-  { level: 5, image: `${IPFS_GATEWAY}/bafkreibz6wuhdung3neha7jyyf7323qgjrtsvi3y5bixqtk32hawzvf35i`, radius: 40, color: '#c0392b', name: 'Apple' },
-  { level: 6, image: `${IPFS_GATEWAY}/bafkreifkvji2k4oyyxo3fyggkn5dvbuouvip765jk5kfa6ewt37tqkwda4`, radius: 45, color: '#27ae60', name: 'Pear' },
-  { level: 7, image: `${IPFS_GATEWAY}/bafkreihz77f36frdk7nq332g7zblwt2ctca4cvrr53awr6rybtlp56ohvy`, radius: 50, color: '#fd79a8', name: 'Peach' },
-  { level: 8, image: `${IPFS_GATEWAY}/bafkreigkdamx6cylhgcthhrhx5p4rb4otkybrhyvsprvk2huyrnxrm2uya`, radius: 55, color: '#fdcb6e', name: 'Pineapple' },
-  { level: 9, image: `${IPFS_GATEWAY}/bafkreifefcjgleils74ujmmjlqakteiwaiotxc4sioeyrkkeul6wmqfka4`, radius: 60, color: '#00b894', name: 'Melon' },
-  { level: 10, image: `${IPFS_GATEWAY}/bafybeib4oogwh4auyotbqfcp4bxj4qcjw4xq5htpuafbyjeifuu3dcfkha`, radius: 70, color: '#55a3a3', name: 'Watermelon' },
+  { level: 1, image: `${IPFS_GATEWAY}/bafkreicydu6guwunucel3v5miduloc62s5pjsyirh5pxw5zjrnzcgdsap4`, radius: 15, name: 'Cherry', scoreValue: 1 },
+  { level: 2, image: `${IPFS_GATEWAY}/bafkreifvpkhlj53igt66rcyzylffbfbcdl7nqfqypxdjrxvhpwl3rmpgu4`, radius: 19, name: 'Grape', scoreValue: 3 },
+  { level: 3, image: `${IPFS_GATEWAY}/bafkreibenssqrrj3ctd6bfuycn66ozwrtzt23b3atwegjnt5wkqcnfrndi`, radius: 24, name: 'Orange', scoreValue: 6 },
+  { level: 4, image: `${IPFS_GATEWAY}/bafkreiarh47cw5m442fh76qkaws23uk7ztte5wyswqi2qnbgje5pkrcfme`, radius: 28, name: 'Lemon', scoreValue: 10 },
+  { level: 5, image: `${IPFS_GATEWAY}/bafkreibz6wuhdung3neha7jyyf7323qgjrtsvi3y5bixqtk32hawzvf35i`, radius: 33, name: 'Apple', scoreValue: 15 },
+  { level: 6, image: `${IPFS_GATEWAY}/bafkreifkvji2k4oyyxo3fyggkn5dvbuouvip765jk5kfa6ewt37tqkwda4`, radius: 38, name: 'Pear', scoreValue: 21 },
+  { level: 7, image: `${IPFS_GATEWAY}/bafkreihz77f36frdk7nq332g7zblwt2ctca4cvrr53awr6rybtlp56ohvy`, radius: 44, name: 'Peach', scoreValue: 28 },
+  { level: 8, image: `${IPFS_GATEWAY}/bafkreigkdamx6cylhgcthhrhx5p4rb4otkybrhyvsprvk2huyrnxrm2uya`, radius: 50, name: 'Pineapple', scoreValue: 36 },
+  { level: 9, image: `${IPFS_GATEWAY}/bafkreifefcjgleils74ujmmjlqakteiwaiotxc4sioeyrkkeul6wmqfka4`, radius: 58, name: 'Melon', scoreValue: 45 },
+  { level: 10, image: `${IPFS_GATEWAY}/bafybeib4oogwh4auyotbqfcp4bxj4qcjw4xq5htpuafbyjeifuu3dcfkha`, radius: 68, name: 'Watermelon', scoreValue: 55 },
 ]
 
-interface GameState {
-  score: number
-  seedsPending: number
-  isGameOver: boolean
+// Preload images for sprites
+const preloadImages = () => {
+  FRUITS.forEach(fruit => {
+    const img = new Image()
+    img.src = fruit.image
+  })
+}
+
+// Game states
+const GameState = {
+  MENU: 0,
+  READY: 1,
+  DROP: 2,
+  LOSE: 3,
+} as const
+
+interface FruitBody extends Matter.Body {
+  sizeIndex?: number
+  popped?: boolean
+  dropTime?: number
 }
 
 interface FruitGameProps {
@@ -37,53 +69,96 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
   const account = useCurrentAccount()
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
   
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engineRef = useRef<Matter.Engine | null>(null)
   const renderRef = useRef<Matter.Render | null>(null)
   const runnerRef = useRef<Matter.Runner | null>(null)
+  const previewBallRef = useRef<Matter.Body | null>(null)
+  const gameStateRef = useRef<number>(GameState.MENU)
+  const currentFruitIndexRef = useRef(0)
+  const nextFruitIndexRef = useRef(0)
   
-  const [nextFruit, setNextFruit] = useState(0)
-  const [gameState, setGameState] = useState<GameState>({
-    score: 0,
-    seedsPending: 0,
-    isGameOver: false,
-  })
-  const [canDrop, setCanDrop] = useState(true)
+  const [, setDisplayCurrentFruit] = useState(0)
+  const [displayNextFruit, setDisplayNextFruit] = useState(0)
+  const [score, setScore] = useState(0)
+  const [seedsPending, setSeedsPending] = useState(0)
   const [txStatus, setTxStatus] = useState<string>('')
   const [gameStarted, setGameStarted] = useState(false)
+  const [isGameOver, setIsGameOver] = useState(false)
   
-  const fruitsRef = useRef<Map<number, { body: Matter.Body; level: number; index: number; dropTime: number }>>(new Map())
-  const fruitIndexCounter = useRef(0)
+  const fruitsMergedRef = useRef<number[]>(Array(FRUITS.length).fill(0))
+
+  // Preload images on mount
+  useEffect(() => {
+    preloadImages()
+  }, [])
 
   // Calculate seeds based on fruit level
-  const calculateSeeds = (level: number): number => {
+  const calculateSeeds = useCallback((level: number): number => {
     if (level <= 3) return 0
     if (level <= 5) return level - 3
     if (level <= 7) return level - 2
     return level
-  }
+  }, [])
 
-  // Mint seeds on-chain (ONLY transaction needed!)
+  // Calculate score from merges
+  const calculateScore = useCallback(() => {
+    const newScore = fruitsMergedRef.current.reduce((total, count, sizeIndex) => {
+      return total + (FRUITS[sizeIndex]?.scoreValue || 0) * count
+    }, 0)
+    setScore(newScore)
+  }, [])
+
+  // Generate a fruit body with sprite
+  const generateFruitBody = useCallback((x: number, y: number, sizeIndex: number, extraConfig: object = {}): FruitBody => {
+    const fruit = FRUITS[sizeIndex]
+    const body: FruitBody = Matter.Bodies.circle(x, y, fruit.radius, {
+      ...FRICTION,
+      ...extraConfig,
+      label: 'fruit',
+      render: {
+        sprite: {
+          texture: fruit.image,
+          xScale: (fruit.radius * 2) / 512,
+          yScale: (fruit.radius * 2) / 512,
+        }
+      }
+    })
+    body.sizeIndex = sizeIndex
+    body.popped = false
+    body.dropTime = Date.now()
+    return body
+  }, [])
+
+  // Set next fruit size (random 0-4 for small fruits)
+  const setNextFruitSize = useCallback(() => {
+    const next = Math.floor(Math.random() * 5)
+    nextFruitIndexRef.current = next
+    setDisplayNextFruit(next)
+  }, [])
+
+  // Mint seeds on-chain
   const mintSeedsOnChain = async () => {
     if (!account?.address || !playerAccountId) {
       setTxStatus('❌ Connect wallet and create account first')
       setTimeout(() => setTxStatus(''), 3000)
       return
     }
-    if (gameState.seedsPending === 0) {
+    if (seedsPending === 0) {
       setTxStatus('❌ No seeds to mint')
       setTimeout(() => setTxStatus(''), 3000)
       return
     }
     
-    setTxStatus(`🌱 Minting ${gameState.seedsPending} seeds...`)
+    setTxStatus(`🌱 Minting ${seedsPending} seeds...`)
     const tx = new Transaction()
     
     tx.moveCall({
       target: `${PACKAGE_ID}::player::mint_seeds`,
       arguments: [
         tx.object(playerAccountId),
-        tx.pure.u64(gameState.seedsPending),
+        tx.pure.u64(seedsPending),
       ],
     })
 
@@ -91,11 +166,11 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       { transaction: tx },
       {
         onSuccess: async () => {
-          const minted = gameState.seedsPending
+          const minted = seedsPending
           onSeedsHarvested?.(minted)
           
           setTxStatus(`🎉 Minted ${minted} seeds!`)
-          setGameState(prev => ({ ...prev, seedsPending: 0 }))
+          setSeedsPending(0)
           setTimeout(() => setTxStatus(''), 3000)
         },
         onError: (error) => {
@@ -107,33 +182,18 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
     )
   }
 
-  // Reset game locally (no transaction!)
-  const resetGame = () => {
-    if (!engineRef.current) return
-    
-    // Clear all fruits
-    for (const [, fruit] of fruitsRef.current) {
-      Matter.Composite.remove(engineRef.current.world, fruit.body)
+  // Lose game handler
+  const loseGame = useCallback(() => {
+    gameStateRef.current = GameState.LOSE
+    setIsGameOver(true)
+    if (runnerRef.current) {
+      runnerRef.current.enabled = false
     }
-    fruitsRef.current.clear()
-    fruitIndexCounter.current = 0
-    
-    setGameState({
-      score: 0,
-      seedsPending: 0,
-      isGameOver: false,
-    })
-    setNextFruit(Math.floor(Math.random() * 3))
-    setGameStarted(true)
-  }
+  }, [])
 
-  // Initialize Matter.js
+  // Initialize Matter.js engine
   useEffect(() => {
     if (!canvasRef.current) return
-
-    const width = 400
-    const height = 600
-    const wallThickness = 20
 
     const engine = Matter.Engine.create()
     engineRef.current = engine
@@ -142,38 +202,56 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       canvas: canvasRef.current,
       engine: engine,
       options: {
-        width,
-        height,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
         wireframes: false,
-        background: '#1a1a2e',
+        background: '#ffdcae',
       },
     })
     renderRef.current = render
 
+    // Wall properties
+    const wallProps = {
+      isStatic: true,
+      render: { fillStyle: '#FFEEDB' },
+      ...FRICTION,
+    }
+
+    // Create walls - left, right, bottom
     const walls = [
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width + wallThickness * 2, wallThickness, {
-        isStatic: true,
-        render: { fillStyle: '#4a4a6a' },
-        label: 'wall',
-      }),
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true,
-        render: { fillStyle: '#4a4a6a' },
-        label: 'wall',
-      }),
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true,
-        render: { fillStyle: '#4a4a6a' },
-        label: 'wall',
-      }),
+      // Bottom
+      Matter.Bodies.rectangle(
+        GAME_WIDTH / 2, 
+        GAME_HEIGHT + WALL_THICKNESS / 2, 
+        GAME_WIDTH + WALL_THICKNESS * 2, 
+        WALL_THICKNESS, 
+        { ...wallProps, label: 'wall' }
+      ),
+      // Left
+      Matter.Bodies.rectangle(
+        -WALL_THICKNESS / 2, 
+        GAME_HEIGHT / 2, 
+        WALL_THICKNESS, 
+        GAME_HEIGHT, 
+        { ...wallProps, label: 'wall' }
+      ),
+      // Right
+      Matter.Bodies.rectangle(
+        GAME_WIDTH + WALL_THICKNESS / 2, 
+        GAME_HEIGHT / 2, 
+        WALL_THICKNESS, 
+        GAME_HEIGHT, 
+        { ...wallProps, label: 'wall' }
+      ),
     ]
 
     Matter.Composite.add(engine.world, walls)
 
-    const gameOverLine = Matter.Bodies.rectangle(width / 2, 100, width, 2, {
+    // Game over line (visual indicator)
+    const gameOverLine = Matter.Bodies.rectangle(GAME_WIDTH / 2, LOSE_HEIGHT, GAME_WIDTH, 2, {
       isStatic: true,
       isSensor: true,
-      render: { fillStyle: '#e74c3c' },
+      render: { fillStyle: 'rgba(231, 76, 60, 0.5)' },
       label: 'gameOverLine',
     })
     Matter.Composite.add(engine.world, gameOverLine)
@@ -181,122 +259,216 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
     // Collision detection for merging
     Matter.Events.on(engine, 'collisionStart', (event) => {
       for (const pair of event.pairs) {
-        const bodyA = pair.bodyA
-        const bodyB = pair.bodyB
+        const bodyA = pair.bodyA as FruitBody
+        const bodyB = pair.bodyB as FruitBody
 
-        if (bodyA.label === 'wall' || bodyB.label === 'wall') continue
-        if (bodyA.label === 'gameOverLine' || bodyB.label === 'gameOverLine') continue
+        // Skip walls and sensors
+        if (bodyA.isStatic || bodyB.isStatic) continue
+        if (bodyA.label !== 'fruit' || bodyB.label !== 'fruit') continue
 
-        const fruitA = fruitsRef.current.get(bodyA.id)
-        const fruitB = fruitsRef.current.get(bodyB.id)
+        // Check if same size fruits
+        if (bodyA.sizeIndex === undefined || bodyB.sizeIndex === undefined) continue
+        if (bodyA.sizeIndex !== bodyB.sizeIndex) continue
+        if (bodyA.popped || bodyB.popped) continue
 
-        if (fruitA && fruitB && fruitA.level === fruitB.level && fruitA.level < 10) {
-          const newLevel = fruitA.level + 1
-          const midX = (bodyA.position.x + bodyB.position.x) / 2
-          const midY = (bodyA.position.y + bodyB.position.y) / 2
+        const currentSize = bodyA.sizeIndex
+        let newSize = currentSize + 1
 
-          // Remove old fruits
-          Matter.Composite.remove(engine.world, bodyA)
-          Matter.Composite.remove(engine.world, bodyB)
-          fruitsRef.current.delete(bodyA.id)
-          fruitsRef.current.delete(bodyB.id)
+        // If max size, wrap to smallest
+        if (currentSize >= FRUITS.length - 1) {
+          newSize = 0
+        }
 
-          // Create new bigger fruit
-          const newFruitConfig = FRUITS[newLevel - 1]
-          const newBody = Matter.Bodies.circle(midX, midY, newFruitConfig.radius, {
-            restitution: 0.3,
-            friction: 0.5,
-            render: { fillStyle: newFruitConfig.color },
-            label: 'fruit',
-          })
-          
-          const newIndex = fruitIndexCounter.current++
-          fruitsRef.current.set(newBody.id, { body: newBody, level: newLevel, index: newIndex, dropTime: Date.now() })
-          Matter.Composite.add(engine.world, newBody)
+        // Mark as popped
+        bodyA.popped = true
+        bodyB.popped = true
 
-          // Update local game state
-          const seeds = calculateSeeds(newLevel)
-          setGameState((prev) => ({
-            ...prev,
-            score: prev.score + newLevel * 10,
-            seedsPending: prev.seedsPending + seeds,
-          }))
+        // Track merge for scoring
+        fruitsMergedRef.current[currentSize] += 1
+
+        // Calculate merge position
+        const midX = (bodyA.position.x + bodyB.position.x) / 2
+        const midY = (bodyA.position.y + bodyB.position.y) / 2
+
+        // Remove old fruits
+        Matter.Composite.remove(engine.world, bodyA)
+        Matter.Composite.remove(engine.world, bodyB)
+
+        // Create new bigger fruit
+        const newFruit = generateFruitBody(midX, midY, newSize)
+        Matter.Composite.add(engine.world, newFruit)
+
+        // Update score and seeds
+        calculateScore()
+        const seeds = calculateSeeds(newSize + 1)
+        if (seeds > 0) {
+          setSeedsPending(prev => prev + seeds)
         }
       }
     })
 
-    // Check for game over
+    // Check for game over - fruits staying above lose line for 2+ seconds
     Matter.Events.on(engine, 'afterUpdate', () => {
+      if (gameStateRef.current === GameState.LOSE) return
+      
       const now = Date.now()
-      for (const [, fruit] of fruitsRef.current) {
-        const timeSinceDrop = now - fruit.dropTime
-        if (timeSinceDrop > 2000 &&
-            fruit.body.position.y < 120 &&
-            Math.abs(fruit.body.velocity.y) < 1 &&
-            Math.abs(fruit.body.velocity.x) < 1) {
-          setGameState((prev) => {
-            if (!prev.isGameOver) {
-              return { ...prev, isGameOver: true }
-            }
-            return prev
-          })
+      const bodies = Matter.Composite.allBodies(engine.world)
+      for (const body of bodies) {
+        const fruitBody = body as FruitBody
+        if (fruitBody.label !== 'fruit' || fruitBody.isStatic) continue
+        
+        // Must have been dropped at least 2 seconds ago
+        const timeSinceDrop = now - (fruitBody.dropTime || now)
+        if (timeSinceDrop < 2000) continue
+        
+        // Check if fruit is above lose line and has settled
+        if (fruitBody.position.y < LOSE_HEIGHT && 
+            Math.abs(fruitBody.velocity.y) < 0.5 &&
+            Math.abs(fruitBody.velocity.x) < 0.5) {
+          loseGame()
           break
         }
       }
     })
 
+    // Runner
     const runner = Matter.Runner.create()
     runnerRef.current = runner
     Matter.Runner.run(runner, engine)
     Matter.Render.run(render)
 
-    setNextFruit(Math.floor(Math.random() * 3))
+    // Initialize first fruit
+    const initialFruit = Math.floor(Math.random() * 5)
+    currentFruitIndexRef.current = initialFruit
+    setDisplayCurrentFruit(initialFruit)
+    
+    const nextFruit = Math.floor(Math.random() * 5)
+    nextFruitIndexRef.current = nextFruit
+    setDisplayNextFruit(nextFruit)
 
     return () => {
       Matter.Render.stop(render)
       Matter.Runner.stop(runner)
       Matter.Engine.clear(engine)
-      fruitsRef.current.clear()
     }
-  }, [])
+  }, [generateFruitBody, calculateScore, calculateSeeds, loseGame])
 
-  // Drop fruit locally (no transaction!)
-  const dropFruit = useCallback(
-    (x: number) => {
-      if (!engineRef.current || !canDrop || gameState.isGameOver || !gameStarted) return
+  // Start game
+  const startGame = useCallback(() => {
+    if (!engineRef.current) return
 
-      const fruit = FRUITS[nextFruit]
-      const body = Matter.Bodies.circle(x, 50, fruit.radius, {
-        restitution: 0.3,
-        friction: 0.5,
-        render: { fillStyle: fruit.color },
-        label: 'fruit',
-      })
+    setGameStarted(true)
+    setIsGameOver(false)
+    setScore(0)
+    setSeedsPending(0)
+    fruitsMergedRef.current = Array(FRUITS.length).fill(0)
+    gameStateRef.current = GameState.READY
 
-      const newIndex = fruitIndexCounter.current++
-      fruitsRef.current.set(body.id, { body, level: fruit.level, index: newIndex, dropTime: Date.now() })
-      Matter.Composite.add(engineRef.current.world, body)
-
-      setCanDrop(false)
-      setTimeout(() => setCanDrop(true), 500)
-      setNextFruit(Math.floor(Math.random() * 3))
-    },
-    [nextFruit, canDrop, gameState.isGameOver, gameStarted]
-  )
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!gameStarted) {
-      resetGame()
-      return
+    if (runnerRef.current) {
+      runnerRef.current.enabled = true
     }
+
+    // Create preview ball
+    const initialFruit = Math.floor(Math.random() * 5)
+    currentFruitIndexRef.current = initialFruit
+    setDisplayCurrentFruit(initialFruit)
+    
+    const nextFruit = Math.floor(Math.random() * 5)
+    nextFruitIndexRef.current = nextFruit
+    setDisplayNextFruit(nextFruit)
+
+    const preview = generateFruitBody(GAME_WIDTH / 2, PREVIEW_BALL_Y, initialFruit, {
+      isStatic: true,
+      collisionFilter: { mask: 0x0000 },
+    })
+    previewBallRef.current = preview
+    Matter.Composite.add(engineRef.current.world, preview)
+  }, [generateFruitBody])
+
+  // Reset game
+  const resetGame = useCallback(() => {
+    if (!engineRef.current) return
+
+    // Remove all fruits
+    const bodies = Matter.Composite.allBodies(engineRef.current.world)
+    bodies.forEach(body => {
+      if (body.label === 'fruit') {
+        Matter.Composite.remove(engineRef.current!.world, body)
+      }
+    })
+
+    previewBallRef.current = null
+    startGame()
+  }, [startGame])
+
+  // Handle mouse move for preview ball
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!gameStarted || isGameOver || !previewBallRef.current) return
+    if (gameStateRef.current !== GameState.READY) return
+
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
-    const x = e.clientX - rect.left
-    dropFruit(x)
-  }
+
+    const currentRadius = FRUITS[currentFruitIndexRef.current].radius
+    const x = Math.max(
+      currentRadius + 5,
+      Math.min(GAME_WIDTH - currentRadius - 5, e.clientX - rect.left)
+    )
+
+    Matter.Body.setPosition(previewBallRef.current, { x, y: PREVIEW_BALL_Y })
+  }, [gameStarted, isGameOver])
+
+  // Handle click to drop fruit
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!gameStarted) {
+      startGame()
+      return
+    }
+
+    if (isGameOver || gameStateRef.current !== GameState.READY) return
+    if (!engineRef.current || !previewBallRef.current) return
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const currentRadius = FRUITS[currentFruitIndexRef.current].radius
+    const x = Math.max(
+      currentRadius + 5,
+      Math.min(GAME_WIDTH - currentRadius - 5, e.clientX - rect.left)
+    )
+
+    gameStateRef.current = GameState.DROP
+
+    // Remove preview ball
+    Matter.Composite.remove(engineRef.current.world, previewBallRef.current)
+    previewBallRef.current = null
+
+    // Drop actual fruit
+    const droppedFruit = generateFruitBody(x, PREVIEW_BALL_Y, currentFruitIndexRef.current)
+    Matter.Composite.add(engineRef.current.world, droppedFruit)
+
+    // Prepare next fruit
+    currentFruitIndexRef.current = nextFruitIndexRef.current
+    setDisplayCurrentFruit(nextFruitIndexRef.current)
+    setNextFruitSize()
+
+    // Cooldown before next drop
+    setTimeout(() => {
+      if (gameStateRef.current === GameState.DROP && engineRef.current) {
+        // Create new preview ball
+        const preview = generateFruitBody(GAME_WIDTH / 2, PREVIEW_BALL_Y, currentFruitIndexRef.current, {
+          isStatic: true,
+          collisionFilter: { mask: 0x0000 },
+        })
+        previewBallRef.current = preview
+        Matter.Composite.add(engineRef.current.world, preview)
+        gameStateRef.current = GameState.READY
+      }
+    }, DROP_COOLDOWN)
+  }, [gameStarted, isGameOver, startGame, generateFruitBody, setNextFruitSize])
 
   return (
-    <div className="fruit-game">
+    <div className="fruit-game" ref={containerRef}>
       {/* Transaction Status */}
       {txStatus && (
         <div className="tx-status">
@@ -309,28 +481,31 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       <div className="game-stats">
         <div className="stat">
           <span className="stat-label">Score</span>
-          <span className="stat-value">{gameState.score}</span>
+          <span className="stat-value">{score}</span>
         </div>
         <div className="stat seeds">
           <span className="stat-label">🌱 Seeds</span>
-          <span className="stat-value">{gameState.seedsPending}</span>
+          <span className="stat-value">{seedsPending}</span>
         </div>
+        {gameStarted && !isGameOver && (
+          <div className="stat next">
+            <span className="stat-label">Next</span>
+            <img 
+              src={FRUITS[displayNextFruit].image} 
+              alt={FRUITS[displayNextFruit].name} 
+              className="next-fruit-img" 
+            />
+          </div>
+        )}
       </div>
-
-      {/* Next Fruit Preview */}
-      {gameStarted && !gameState.isGameOver && (
-        <div className="next-fruit">
-          <span>Next: </span>
-          <img src={FRUITS[nextFruit].image} alt={FRUITS[nextFruit].name} className="fruit-img-preview" />
-        </div>
-      )}
 
       {/* Game Canvas */}
       <div className="canvas-container">
         <canvas
           ref={canvasRef}
-          onClick={handleCanvasClick}
-          style={{ cursor: (gameStarted && canDrop && !gameState.isGameOver) ? 'pointer' : 'default' }}
+          onMouseMove={handleMouseMove}
+          onClick={handleClick}
+          style={{ cursor: (gameStarted && !isGameOver && gameStateRef.current === GameState.READY) ? 'pointer' : 'default' }}
         />
         
         {/* Start Screen */}
@@ -347,13 +522,13 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
         )}
 
         {/* Game Over */}
-        {gameState.isGameOver && (
+        {isGameOver && (
           <div className="game-overlay game-over">
             <h2>💥 Game Over!</h2>
-            <p className="score-display">Score: {gameState.score}</p>
-            {gameState.seedsPending > 0 && (
+            <p className="score-display">Score: {score}</p>
+            {seedsPending > 0 && (
               <div className="harvest-prompt">
-                <p className="seeds-earned">🌱 {gameState.seedsPending} seeds earned!</p>
+                <p className="seeds-earned">🌱 {seedsPending} seeds earned!</p>
                 {account && playerAccountId ? (
                   <button 
                     className="btn-harvest" 
@@ -375,7 +550,7 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
       </div>
 
       {/* Mint Button - Available during gameplay */}
-      {gameStarted && !gameState.isGameOver && gameState.seedsPending > 0 && (
+      {gameStarted && !isGameOver && seedsPending > 0 && (
         <div className="mint-during-game">
           {account && playerAccountId ? (
             <button 
@@ -383,7 +558,7 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
               onClick={mintSeedsOnChain}
               disabled={isPending}
             >
-              {isPending ? '⏳ Minting...' : `🌱 Mint ${gameState.seedsPending} Seeds`}
+              {isPending ? '⏳ Minting...' : `🌱 Mint ${seedsPending} Seeds`}
             </button>
           ) : (
             <span className="hint">Connect wallet to mint seeds</span>

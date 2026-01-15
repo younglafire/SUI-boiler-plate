@@ -100,12 +100,18 @@ body {
   padding: 1rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
+  align-items: center;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.stat.next {
+  flex-direction: row;
+  gap: 0.5rem;
 }
 
 .stat-label {
@@ -117,6 +123,12 @@ body {
   font-size: 1.5rem;
   font-weight: bold;
   color: #feca57;
+}
+
+.next-fruit-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .next-fruit {
@@ -141,6 +153,7 @@ body {
 
 .canvas-container canvas {
   display: block;
+  border-radius: 12px;
 }
 
 /* Game Over Overlay */
