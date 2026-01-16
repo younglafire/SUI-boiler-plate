@@ -20,6 +20,7 @@ module contract::utils {
     const E_NO_DROPS_REMAINING: u64 = 104;
     const E_INVALID_FRUIT_LEVEL: u64 = 105;
     const E_CLAIMING_MUST_DROP: u64 = 106;
+    const E_INSUFFICIENT_FRUITS: u64 = 107;
     
     // Seed/Balance Errors (200-299)
     const E_INSUFFICIENT_SEEDS: u64 = 200;
@@ -150,6 +151,7 @@ module contract::utils {
     public fun e_no_drops_remaining(): u64 { E_NO_DROPS_REMAINING }
     public fun e_invalid_fruit_level(): u64 { E_INVALID_FRUIT_LEVEL }
     public fun e_claiming_must_drop(): u64 { E_CLAIMING_MUST_DROP }
+    public fun e_insufficient_fruits(): u64 { E_INSUFFICIENT_FRUITS }
     public fun e_insufficient_seeds(): u64 { E_INSUFFICIENT_SEEDS }
     public fun e_insufficient_balance(): u64 { E_INSUFFICIENT_BALANCE }
     public fun e_invalid_seed_count(): u64 { E_INVALID_SEED_COUNT }

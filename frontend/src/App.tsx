@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions'
 import FruitGame from './components/FruitGame'
 import PlayerLand from './components/PlayerLand'
 import Inventory from './components/Inventory'
+import Market from './components/Market'
 import './App.css'
 
 const PACKAGE_ID = '0xf16d834033692ce7ab1090506257772e1566810e26e3b72951c7fa4dbf3b45cc'
@@ -13,7 +14,7 @@ const CLOCK_OBJECT = '0x6'
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`
 const SEED_DECIMALS = 1_000_000_000 // 9 decimals
 
-type GameTab = 'game' | 'land' | 'inventory'
+type GameTab = 'game' | 'land' | 'inventory' | 'market'
 
 function App() {
   const account = useCurrentAccount()
@@ -23,6 +24,7 @@ function App() {
   
   // Player objects (no account required)
   const [landId, setLandId] = useState<string | null>(null)
+  const [inventoryId, setInventoryId] = useState<string | null>(null)
   const [playerSeeds, setPlayerSeeds] = useState(0)
   const [txStatus, setTxStatus] = useState('')
   
@@ -47,10 +49,14 @@ function App() {
       })
 
       let foundLand: string | null = null
+      let foundInventory: string | null = null
 
       for (const obj of objects.data) {
         if (obj.data?.type?.includes(`${PACKAGE_ID}::land::PlayerLand`)) {
           foundLand = obj.data.objectId
+        }
+        if (obj.data?.type?.includes(`${PACKAGE_ID}::player::PlayerInventory`)) {
+          foundInventory = obj.data.objectId
         }
       }
       
@@ -61,6 +67,7 @@ function App() {
       const seeds = Math.floor(Number(seedBalance.totalBalance) / SEED_DECIMALS)
       
       setLandId(foundLand)
+      setInventoryId(foundInventory)
       setPlayerSeeds(seeds)
     } catch (error) {
       console.error('Error loading user objects:', error)
@@ -157,6 +164,13 @@ function App() {
                 </button>
                 <button 
                   className={activeTab === 'inventory' ? 'active' : ''} 
+                <button 
+                  className={activeTab === 'market' ? 'active' : ''} 
+                  onClick={() => handleTabChange('market')}
+                >
+                  <span className="icon">🏪</span>
+                  <span className="label">MARKET</span>
+                </button>
                   onClick={() => handleTabChange('inventory')}
                 >
                   <span className="icon">🎒</span>
@@ -191,7 +205,11 @@ function App() {
                     />
                   </div>
                 ) : activeTab === 'land' ? (
-                  <div className="land-container">
+                  <dactiveTab === 'market' ? (
+                  <div className="market-wrapper">
+                    <Market inventoryId={inventoryId} onUpdate={loadUserObjects} />
+                  </div>
+                ) : iv className="land-container">
                     <PlayerLand 
                       landId={landId} 
                       playerSeeds={playerSeeds} 
