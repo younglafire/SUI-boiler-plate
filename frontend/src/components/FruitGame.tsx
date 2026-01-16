@@ -69,9 +69,10 @@ interface FruitBody extends Matter.Body {
 interface FruitGameProps {
   playerAccountId?: string
   onSeedsHarvested?: (seeds: number) => void
+  onGameStateChange?: (isActive: boolean) => void
 }
 
-export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGameProps) {
+export default function FruitGame({ playerAccountId, onSeedsHarvested, onGameStateChange }: FruitGameProps) {
   const account = useCurrentAccount()
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
   
@@ -99,6 +100,13 @@ export default function FruitGame({ playerAccountId, onSeedsHarvested }: FruitGa
   useEffect(() => {
     preloadImages()
   }, [])
+
+  // Notify parent component about game state
+  useEffect(() => {
+    if (onGameStateChange) {
+      onGameStateChange(gameStarted && !isGameOver)
+    }
+  }, [gameStarted, isGameOver, onGameStateChange])
 
   // Calculate seeds based on fruit level
   const calculateSeeds = useCallback((level: number): number => {

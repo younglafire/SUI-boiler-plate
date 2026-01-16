@@ -26,6 +26,11 @@ function App() {
   const [landId, setLandId] = useState<string | null>(null)
   const [playerSeeds, setPlayerSeeds] = useState(0)
   const [txStatus, setTxStatus] = useState('')
+  
+  // Game state tracking
+  const [isGameActive, setIsGameActive] = useState(false)
+  const [showExitModal, setShowExitModal] = useState(false)
+  const [pendingTab, setPendingTab] = useState<GameTab | null>(null)
 
   // Load player objects from chain
   const loadUserObjects = useCallback(async () => {
@@ -113,6 +118,29 @@ function App() {
     loadUserObjects()
   }
 
+  const handleTabChange = (newTab: GameTab) => {
+    if (isGameActive && newTab !== activeTab) {
+      setPendingTab(newTab)
+      setShowExitModal(true)
+    } else {
+      setActiveTab(newTab)
+    }
+  }
+
+  const confirmTabChange = () => {
+    if (pendingTab) {
+      setActiveTab(pendingTab)
+      setIsGameActive(false)
+      setPendingTab(null)
+    }
+    setShowExitModal(false)
+  }
+
+  const cancelTabChange = () => {
+    setPendingTab(null)
+    setShowExitModal(false)
+  }
+
   return (
     <div className="app">
       <div className="floating-fruits">
@@ -148,54 +176,85 @@ function App() {
       ) : (
         /* --- GAME INTERFACE (Post-connection) --- */
         <>
-          <header className="app-header">
-            <div className="header-left">
-              <h1>FRUIT MERGE</h1>
+          <div className="game-layout">
+            {/* Sidebar Menu */}
+            <aside className="sidebar-menu">
+              <div className="sidebar-header">
+                <h2>🍉 FRUIT<br/>MERGE</h2>
+              </div>
+              <nav className="sidebar-nav">
+                <button 
+                  className={activeTab === 'game' ? 'active' : ''} 
+                  onClick={() => handleTabChange('game')}
+                >
+                  <span className="icon">🎮</span>
+                  <span className="label">GAME</span>
+                </button>
+                <button 
+                  className={activeTab === 'land' ? 'active' : ''} 
+                  onClick={() => handleTabChange('land')}
+                >
+                  <span className="icon">🌍</span>
+                  <span className="label">FARM</span>
+                </button>
+              </nav>
+              <div className="sidebar-footer">
+                <div className="seeds-display">
+                  <span className="icon">🌱</span>
+                  <div>
+                    <div className="label">Seeds</div>
+                    <div className="value">{playerSeeds.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* Main Content */}
+            <div className="main-content">
+              <header className="top-bar">
+                <div className="top-bar-right">
+                  <ConnectButton />
+                </div>
+              </header>
+
+              <main className="content-area">
+                {activeTab === 'game' ? (
+                  <div className="game-container">
+                    <FruitGame 
+                      playerAccountId={playerAccountId ?? undefined} 
+                      onSeedsHarvested={handleSeedsHarvested}
+                      onGameStateChange={setIsGameActive}
+                    />
+                  </div>
+                ) : (
+                  <div className="land-container">
+                    <PlayerLand 
+                      playerAccountId={playerAccountId} 
+                      playerInventoryId={playerInventoryId}
+                      landId={landId} 
+                      playerSeeds={playerSeeds} 
+                      onDataChanged={loadUserObjects} 
+                    />
+                  </div>
+                )}
+              </main>
             </div>
+          </div>
 
-            <nav className="header-nav">
-              <button 
-                className={activeTab === 'game' ? 'active' : ''} 
-                onClick={() => setActiveTab('game')}
-              >
-                🎮 GAME
-              </button>
-              <button 
-                className={activeTab === 'land' ? 'active' : ''} 
-                onClick={() => setActiveTab('land')}
-              >
-                🌍 FARM
-              </button>
-            </nav>
-
-            <div className="header-right">
-              <div className="total-harvested">
-                🌱 {playerSeeds.toLocaleString()} SEEDS
+          {/* Exit Confirmation Modal */}
+          {showExitModal && (
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <h3>⚠️ Cảnh báo</h3>
+                <p>Bạn đang trong quá trình chơi game. Nếu chuyển tab bây giờ, bạn sẽ mất tiến trình hiện tại.</p>
+                <p><strong>Bạn có muốn thoát không?</strong></p>
+                <div className="modal-buttons">
+                  <button className="btn-cancel" onClick={cancelTabChange}>Không</button>
+                  <button className="btn-confirm" onClick={confirmTabChange}>Có</button>
+                </div>
               </div>
-              <ConnectButton />
             </div>
-          </header>
-
-          <main className="app-main">
-            {activeTab === 'game' ? (
-              <div className="game-container">
-                <FruitGame 
-                  playerAccountId={playerAccountId ?? undefined} 
-                  onSeedsHarvested={handleSeedsHarvested} 
-                />
-              </div>
-            ) : (
-              <div className="land-container">
-                <PlayerLand 
-                  playerAccountId={playerAccountId} 
-                  playerInventoryId={playerInventoryId}
-                  landId={landId} 
-                  playerSeeds={playerSeeds} 
-                  onDataChanged={loadUserObjects} 
-                />
-              </div>
-            )}
-          </main>
+          )}
         </>
       )}
 
