@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 
-const PACKAGE_ID = '0x9bcb6bff172af8a623688549476d840de762c3a3bc914274b7386691edb0cecc'
+const PACKAGE_ID = '0xcd19d7a5d67772d9b6d558ed1ffe0adada1092877a362dd960094a55cc66aaed'
 const RANDOM_OBJECT = '0x8'
 const CLOCK_OBJECT = '0x6'
 const GROW_TIME_MS = 15000 // 15 seconds
@@ -72,7 +72,6 @@ export default function PlayerLand({
   const [slots, setSlots] = useState<Slot[]>([])
   const [landLevel, setLandLevel] = useState(1)
   const [maxSlots, setMaxSlots] = useState(4)
-  const [inventory, setInventory] = useState<InventoryFruit[]>([])
   const [txStatus, setTxStatus] = useState('')
   const [currentTime, setCurrentTime] = useState(Date.now())
   
@@ -145,44 +144,12 @@ export default function PlayerLand({
     }
   }, [landId, suiClient])
 
-  // Fetch inventory data
-  const fetchInventoryData = useCallback(async () => {
-    if (!playerInventoryId) return
-    
-    try {
-      const invObj = await suiClient.getObject({
-        id: playerInventoryId,
-        options: { showContent: true }
-      })
-      
-      if (invObj.data?.content && 'fields' in invObj.data.content) {
-        const fields = invObj.data.content.fields as Record<string, unknown>
-        const fruits = fields.fruits as Array<{
-          fields?: {
-            fruit_type?: number
-            rarity?: number
-            weight?: number
-            harvested_at?: string
-          }
-        }> || []
-        
-        const parsedFruits: InventoryFruit[] = fruits.map(f => ({
-          fruitType: Number(f.fields?.fruit_type || 1),
-          rarity: Number(f.fields?.rarity || 1),
-          weight: Number(f.fields?.weight || 100),
-          harvestedAt: Number(f.fields?.harvested_at || 0),
-        }))
-        setInventory(parsedFruits)
-      }
-    } catch (error) {
-      console.error('Error fetching inventory:', error)
-    }
-  }, [playerInventoryId, suiClient])
+  // Fetch inventory data - REMOVED (no player inventory needed)
+  // Users interact directly with harvested fruits without storage
 
   useEffect(() => {
     fetchLandData()
-    fetchInventoryData()
-  }, [fetchLandData, fetchInventoryData])
+  }, [fetchLandData])
 
   // Create first land (for new players)
   const createFirstLand = async () => {
@@ -214,7 +181,7 @@ export default function PlayerLand({
 
   // Buy additional land
   const buyNewLand = async () => {
-    if (!playerAccountId || !account?.address) return
+    if (!account?.address) return
     
     const costInSeeds = Number(NEW_LAND_COST)
     if (playerSeeds < costInSeeds) {
@@ -278,7 +245,7 @@ export default function PlayerLand({
 
   // Upgrade land to get more slots
   const upgradeLand = async () => {
-    if (!playerAccountId || !landId || !account?.address) return
+    if (!landId || !account?.address) return
     
     // Cost doubles with each level: 100, 200, 400, 800...
     const costInSeeds = Number(LAND_UPGRADE_BASE_COST) * (1 << landLevel)
@@ -344,18 +311,10 @@ export default function PlayerLand({
 
   // Plant in single slot
   const plantInSlot = async () => {
-    console.log('plantInSlot called', { playerAccountId, landId, playerInventoryId, plantSlotIndex, seedsToPlant })
+    console.log('plantInSlot called', { landId, plantSlotIndex, seedsToPlant })
     
-    if (!playerAccountId) {
-      setTxStatus('❌ Player account not found')
-      return
-    }
     if (!landId) {
       setTxStatus('❌ Land not found')
-      return
-    }
-    if (!playerInventoryId) {
-      setTxStatus('❌ Inventory not found')
       return
     }
     if (plantSlotIndex === null) {
@@ -419,7 +378,6 @@ export default function PlayerLand({
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus('🌳 Seed planted!')
           fetchLandData()
-          fetchInventoryData()
           onDataChanged?.()
           setTimeout(() => setTxStatus(''), 3000)
         },
@@ -434,18 +392,14 @@ export default function PlayerLand({
 
   // Plant all empty slots
   const plantAll = async () => {
-    console.log('plantAll called', { playerAccountId, landId, playerInventoryId, batchSeeds })
+    console.log('plantAll called', { landId, batchSeeds })
     
-    if (!playerAccountId) {
-      setTxStatus('❌ Player account not found')
+    if (!account) {
+      setTxStatus('❌ Please connect your wallet first')
       return
     }
     if (!landId) {
       setTxStatus('❌ Land not found')
-      return
-    }
-    if (!playerInventoryId) {
-      setTxStatus('❌ Inventory not found')
       return
     }
     if (!account?.address) {
@@ -513,7 +467,6 @@ export default function PlayerLand({
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus(`🌳 Planted in ${emptyCount} slots!`)
           fetchLandData()
-          fetchInventoryData()
           onDataChanged?.()
           setTimeout(() => setTxStatus(''), 3000)
         },
@@ -547,7 +500,6 @@ export default function PlayerLand({
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus('🍎 Fruits harvested to inventory!')
           fetchLandData()
-          fetchInventoryData()
           onDataChanged?.()
           setTimeout(() => setTxStatus(''), 3000)
         },
@@ -597,7 +549,7 @@ export default function PlayerLand({
 
   // Click on empty slot
   const handleSlotClick = (slot: Slot) => {
-    console.log('handleSlotClick', { slot, playerSeeds, playerAccountId, landId, playerInventoryId })
+    console.log('handleSlotClick', { slot, playerSeeds, landId })
     
     if (!slot.fruit) {
       // Empty slot - open plant modal
@@ -613,7 +565,7 @@ export default function PlayerLand({
     } else {
       // Has fruit - check if ready, trigger harvest
       const isReady = currentTime >= slot.fruit.plantedAt + GROW_TIME_MS
-      if (isReady && playerInventoryId) {
+      if (isReady) {
         forceHarvest()
       } else {
         const timeLeft = Math.max(0, Math.ceil((slot.fruit.plantedAt + GROW_TIME_MS - currentTime) / 1000))
@@ -639,7 +591,7 @@ export default function PlayerLand({
       <div className="seeds-section">
         <div className="seeds-display">
           <h4>🌱 Your Seeds: {playerSeeds}</h4>
-          {playerAccountId && (
+          {account && (
             <button 
               onClick={mintTestSeeds} 
               disabled={isPending}
@@ -653,7 +605,7 @@ export default function PlayerLand({
       </div>
 
       {/* No Land */}
-      {!landId && playerAccountId && (
+      {!landId && account && (
         <div className="create-land-prompt">
           <h3>🏡 No Land Yet</h3>
           <p>Create your first land for FREE!</p>
@@ -664,7 +616,7 @@ export default function PlayerLand({
       )}
 
       {/* No PlayerAccount */}
-      {!playerAccountId && (
+      {!account && (
         <div className="create-account-prompt">
           <h3>🎮 Create Account First</h3>
           <p>You need to create a player account before getting land.</p>
@@ -698,21 +650,21 @@ export default function PlayerLand({
                 🌱 Plant All ({emptySlots} slots) {playerSeeds === 0 && '- Need seeds!'}
               </button>
             )}
-            {readySlots > 0 && playerInventoryId && (
+            {readySlots > 0 && (
               <button onClick={forceHarvest} disabled={isPending}>
                 🌾 Harvest All ({readySlots} ready)
               </button>
             )}
             <button 
               onClick={upgradeLand} 
-              disabled={isPending || !playerAccountId}
+              disabled={isPending || !account}
               title="Costs seeds to upgrade"
             >
               ⬆️ Upgrade Land (costs seeds)
             </button>
             <button 
               onClick={buyNewLand} 
-              disabled={isPending || !playerAccountId}
+              disabled={isPending || !account}
               title="Costs seeds to buy new land"
             >
               🏡 Buy New Land (costs seeds)
@@ -758,7 +710,7 @@ export default function PlayerLand({
           </div>
 
           {/* Inventory Section */}
-          {playerInventoryId && inventory.length > 0 && (
+          {inventory.length > 0 && (
             <div className="inventory-section">
               <h4>🎒 Your Inventory ({inventory.length} fruits)</h4>
               <div className="inventory-grid">

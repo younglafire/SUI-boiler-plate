@@ -3,7 +3,7 @@ import { useSignAndExecuteTransaction, useCurrentAccount } from '@mysten/dapp-ki
 import { Transaction } from '@mysten/sui/transactions'
 import Matter from 'matter-js'
 
-const PACKAGE_ID = '0x9bcb6bff172af8a623688549476d840de762c3a3bc914274b7386691edb0cecc'
+const PACKAGE_ID = '0xcd19d7a5d67772d9b6d558ed1ffe0adada1092877a362dd960094a55cc66aaed'
 
 // SeedAdminCap shared object ID (from contract publish)
 const SEED_ADMIN_CAP = '0x75d9f7428f97b64763dd70df99ae7348412d75e4032229866d7d93f01c39eb79'
@@ -548,7 +548,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
             {seedsPending > 0 && (
               <div className="harvest-prompt">
                 <p className="seeds-earned">🌱 {seedsPending} seeds earned!</p>
-                {account && playerAccountId ? (
+                {account ? (
                   <button 
                     className="btn-harvest" 
                     onClick={mintSeedsOnChain} 
@@ -571,7 +571,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       {/* Mint Button - Available during gameplay */}
       {gameStarted && !isGameOver && seedsPending > 0 && (
         <div className="mint-during-game">
-          {account && playerAccountId ? (
+          {account ? (
             <button 
               className="btn-mint" 
               onClick={mintSeedsOnChain}
