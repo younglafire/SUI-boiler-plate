@@ -5,16 +5,17 @@ import FruitGame from './components/FruitGame'
 import PlayerLand from './components/PlayerLand'
 import Inventory from './components/Inventory'
 import Market from './components/Market'
+import Leaderboard from './components/Leaderboard'
 import './App.css'
 
-const PACKAGE_ID = '0x4f67380241e80b7c11704bb2a83873ce7616b379c5dc6ca25d28686ef1d30320'
+const PACKAGE_ID = '0x1664a15686e5eec8e9554734b7309399265a8771f10f98413bba2227a6537b30'
 const CLOCK_OBJECT = '0x6'
 
 // SEED coin type for balance checking
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`
 const SEED_DECIMALS = 1_000_000_000 // 9 decimals
 
-type GameTab = 'game' | 'land' | 'inventory' | 'market'
+type GameTab = 'game' | 'land' | 'inventory' | 'market' | 'leaderboard'
 
 function App() {
   const account = useCurrentAccount()
@@ -178,6 +179,13 @@ function App() {
                   <span className="icon">🏪</span>
                   <span className="label">MARKET</span>
                 </button>
+                <button 
+                  className={activeTab === 'leaderboard' ? 'active' : ''} 
+                  onClick={() => handleTabChange('leaderboard')}
+                >
+                  <span className="icon">🏆</span>
+                  <span className="label">LEADERBOARD</span>
+                </button>
               </nav>
               <div className="sidebar-footer">
                 <div className="seeds-display">
@@ -228,6 +236,15 @@ function App() {
                             inventoryId={inventoryId} 
                             onUpdate={loadUserObjects} 
                             refreshTrigger={refreshTrigger} 
+                          />
+                        </div>
+                      )
+                    case 'leaderboard':
+                      return (
+                        <div className="leaderboard-wrapper">
+                          <Leaderboard 
+                            inventoryId={inventoryId} 
+                            onUpdate={loadUserObjects} 
                           />
                         </div>
                       )

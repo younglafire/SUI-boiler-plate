@@ -3,10 +3,10 @@ import { useSignAndExecuteTransaction, useCurrentAccount } from '@mysten/dapp-ki
 import { Transaction } from '@mysten/sui/transactions'
 import Matter from 'matter-js'
 
-const PACKAGE_ID = '0x4f67380241e80b7c11704bb2a83873ce7616b379c5dc6ca25d28686ef1d30320'
+const PACKAGE_ID = '0x1664a15686e5eec8e9554734b7309399265a8771f10f98413bba2227a6537b30'
 
 // SeedAdminCap shared object ID (from contract publish)
-const SEED_ADMIN_CAP = '0xeb6298b5d70482a58a1d2bfb50cb0cf67d51f19017069ec4060db91dac312876'
+const SEED_ADMIN_CAP = '0x63a07081520fe716d6a411c773d40313e79aaff63e07e3bff3cf129151b3246d'
 
 // SEED coin has 9 decimals, so multiply by 10^9
 const SEED_DECIMALS = 1_000_000_000n

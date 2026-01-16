@@ -185,6 +185,15 @@ module contract::player {
         fruit
     }
 
+    /// Clear all fruits from inventory (for leaderboard reset)
+    public(package) fun clear_inventory(inventory: &mut PlayerInventory) {
+        // Simply replace the fruits vector with an empty one
+        // Old fruits have 'drop' ability so they're automatically cleaned up
+        inventory.fruits = vector::empty();
+        
+        events::emit_inventory_cleared(inventory.owner);
+    }
+
     /// Upgrade inventory capacity (costs SEED coins)
     entry fun upgrade_inventory(
         player: &mut PlayerAccount,

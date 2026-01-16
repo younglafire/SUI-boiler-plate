@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 
-const PACKAGE_ID = '0x4f67380241e80b7c11704bb2a83873ce7616b379c5dc6ca25d28686ef1d30320'
+const PACKAGE_ID = '0x1664a15686e5eec8e9554734b7309399265a8771f10f98413bba2227a6537b30'
 const RANDOM_OBJECT = '0x8'
 const CLOCK_OBJECT = '0x6'
 const GROW_TIME_MS = 15000 // 15 seconds
 
 // SeedAdminCap shared object ID (from contract publish)
-const SEED_ADMIN_CAP = '0xb0764f9ea32f00ca5fc65a93e968e67f7fc3b10db154787e07312a07c610738e'
+const SEED_ADMIN_CAP = '0x63a07081520fe716d6a411c773d40313e79aaff63e07e3bff3cf129151b3246d'
 
 // SEED coin type and decimals
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`

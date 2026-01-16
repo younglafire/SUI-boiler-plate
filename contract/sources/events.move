@@ -161,6 +161,11 @@ module contract::events {
         inventory_index: u64,
     }
 
+    /// Emitted when inventory is cleared (leaderboard reset)
+    public struct InventoryCleared has copy, drop {
+        player: address,
+    }
+
     // ============================================================================
     // NFT EVENTS
     // ============================================================================
@@ -319,6 +324,10 @@ module contract::events {
         inventory_index: u64
     ) {
         event::emit(FruitRemovedFromInventory { player, fruit_type, inventory_index });
+    }
+
+    public fun emit_inventory_cleared(player: address) {
+        event::emit(InventoryCleared { player });
     }
 
     // ============================================================================
