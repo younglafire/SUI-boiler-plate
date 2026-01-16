@@ -497,7 +497,10 @@ export default function PlayerLand({
 
   // Force harvest (triggers auto-harvest)
   const forceHarvest = async () => {
-    if (!landId) return
+    if (!landId || !inventoryId) {
+      if (!inventoryId) setTxStatus('Wait for inventory to load...')
+      return
+    }
     
     setTxStatus('🌾 Harvesting ready fruits...')
     const tx = new Transaction()
@@ -505,6 +508,7 @@ export default function PlayerLand({
       target: `${PACKAGE_ID}::land::harvest_ready`,
       arguments: [
         tx.object(landId),
+        tx.object(inventoryId),
         tx.object(CLOCK_OBJECT),
       ],
     })

@@ -28,9 +28,10 @@ interface InventoryFruit {
 interface MarketProps {
   inventoryId: string | null
   onUpdate?: () => void
+  refreshTrigger?: number
 }
 
-export default function Market({ inventoryId, onUpdate }: MarketProps) {
+export default function Market({ inventoryId, onUpdate, refreshTrigger }: MarketProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
@@ -71,7 +72,7 @@ export default function Market({ inventoryId, onUpdate }: MarketProps) {
     }
     
     fetchInventory()
-  }, [inventoryId, suiClient, txStatus]) // reload when tx completes
+  }, [inventoryId, suiClient, txStatus, refreshTrigger]) // reload when tx completes
 
   // Group fruits by type
   const groupedFruits = useMemo(() => {

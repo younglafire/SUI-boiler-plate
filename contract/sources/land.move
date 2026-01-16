@@ -18,6 +18,7 @@ module contract::land {
     use contract::utils;
     use contract::events;
     use contract::seed::{Self, SEED, SeedAdminCap};
+    use contract::player::{Self, PlayerInventory};
 
     // ============================================================================
     // STRUCTS
@@ -311,10 +312,10 @@ module contract::land {
     // HARVESTING - Simplified (fruits ready to harvest can be cleared)
     // ============================================================================
 
-    /// Clear all ready fruits from slots
-    /// In production, you would mint FruitNFTs or add to a separate inventory system
+    /// Clear all ready fruits from slots and add to inventory
     entry fun harvest_ready(
         land: &mut PlayerLand,
+        inventory: &mut PlayerInventory,
         clock: &Clock,
         _ctx: &mut TxContext
     ) {
@@ -327,12 +328,21 @@ module contract::land {
                 
                 // Check if fruit is ready
                 if (utils::is_fruit_ready(fruit.planted_at, now)) {
-                    // Extract fruit data for event
+                    // Extract fruit data
                     let fruit_type = fruit.fruit_type;
                     let rarity = fruit.rarity;
                     let weight = fruit.weight;
                     
-                    // Clear slot (in production, mint FruitNFT here)
+                    // Add to inventory
+                    player::add_fruit_to_inventory(
+                        inventory,
+                        fruit_type,
+                        rarity,
+                        weight,
+                        clock
+                    );
+
+                    // Clear slot
                     *land.slots.borrow_mut(i) = option::none();
                     
                     events::emit_fruit_harvested(

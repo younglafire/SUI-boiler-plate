@@ -27,6 +27,7 @@ function App() {
   const [inventoryId, setInventoryId] = useState<string | null>(null)
   const [playerSeeds, setPlayerSeeds] = useState(0)
   const [txStatus, setTxStatus] = useState('')
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   
   // Game state tracking
   const [isGameActive, setIsGameActive] = useState(false)
@@ -69,6 +70,7 @@ function App() {
       setLandId(foundLand)
       setInventoryId(foundInventory)
       setPlayerSeeds(seeds)
+      setRefreshTrigger(prev => prev + 1)
     } catch (error) {
       console.error('Error loading user objects:', error)
     }
@@ -208,17 +210,18 @@ function App() {
                   <div className="land-container">
                     <PlayerLand 
                       landId={landId} 
+                      inventoryId={inventoryId}
                       playerSeeds={playerSeeds} 
                       onDataChanged={loadUserObjects} 
                     />
                   </div>
                 ) : activeTab === 'market' ? (
                   <div className="market-wrapper">
-                    <Market inventoryId={inventoryId} onUpdate={loadUserObjects} />
+                    <Market inventoryId={inventoryId} onUpdate={loadUserObjects} refreshTrigger={refreshTrigger} />
                   </div>
                 ) : (
                   <div className="inventory-wrapper">
-                    <Inventory />
+                    <Inventory inventoryId={inventoryId} refreshTrigger={refreshTrigger} />
                   </div>
                 )}
               </main>
