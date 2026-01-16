@@ -7,7 +7,7 @@ import Inventory from './components/Inventory'
 import Market from './components/Market'
 import './App.css'
 
-const PACKAGE_ID = '0xf16d834033692ce7ab1090506257772e1566810e26e3b72951c7fa4dbf3b45cc'
+const PACKAGE_ID = '0xebb2a971f21d87770364ed9bf697357045add4ec3b113f05bf61f2460230726d'
 const CLOCK_OBJECT = '0x6'
 
 // SEED coin type for balance checking
@@ -164,17 +164,17 @@ function App() {
                 </button>
                 <button 
                   className={activeTab === 'inventory' ? 'active' : ''} 
+                  onClick={() => handleTabChange('inventory')}
+                >
+                  <span className="icon">🎒</span>
+                  <span className="label">INVENTORY</span>
+                </button>
                 <button 
                   className={activeTab === 'market' ? 'active' : ''} 
                   onClick={() => handleTabChange('market')}
                 >
                   <span className="icon">🏪</span>
                   <span className="label">MARKET</span>
-                </button>
-                  onClick={() => handleTabChange('inventory')}
-                >
-                  <span className="icon">🎒</span>
-                  <span className="label">INVENTORY</span>
                 </button>
               </nav>
               <div className="sidebar-footer">
@@ -205,16 +205,16 @@ function App() {
                     />
                   </div>
                 ) : activeTab === 'land' ? (
-                  <dactiveTab === 'market' ? (
-                  <div className="market-wrapper">
-                    <Market inventoryId={inventoryId} onUpdate={loadUserObjects} />
-                  </div>
-                ) : iv className="land-container">
+                  <div className="land-container">
                     <PlayerLand 
                       landId={landId} 
                       playerSeeds={playerSeeds} 
                       onDataChanged={loadUserObjects} 
                     />
+                  </div>
+                ) : activeTab === 'market' ? (
+                  <div className="market-wrapper">
+                    <Market inventoryId={inventoryId} onUpdate={loadUserObjects} />
                   </div>
                 ) : (
                   <div className="inventory-wrapper">
