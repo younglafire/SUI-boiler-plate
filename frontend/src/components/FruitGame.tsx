@@ -24,11 +24,11 @@ const SEED_ADMIN_CAP = '0x4d1847752f9470d9cd83a6c76b71801c32623b1c095c8d1f666500
 const SEED_DECIMALS = 1_000_000_000n
 
 // Game constants
-const GAME_WIDTH = 600
+const GAME_WIDTH = 900
 const GAME_HEIGHT = 800
 const WALL_THICKNESS = 20
 const PREVIEW_BALL_Y = 50
-const LOSE_HEIGHT = 100
+const LOSE_HEIGHT = 150 // Tăng vạch thua lên để dễ kích hoạt Game Over
 const DROP_COOLDOWN = 500
 
 // Physics settings (like the reference game)
@@ -39,18 +39,18 @@ const FRICTION = {
   restitution: 0.5,     // Much bouncier! (Old was 0.1) - This creates chaos
 }
 
-// Fruit configurations with images (Scaled up for 600px width - BIGGER!)
+// Fruit configurations with images (Scaled up for 900px width - EVEN BIGGER!)
 const FRUITS = [
-  { level: 1, image: imgCherry, radius: 26, name: 'Cherry', scoreValue: 1 },
-  { level: 2, image: imgGrape, radius: 36, name: 'Grape', scoreValue: 3 },
-  { level: 3, image: imgOrange, radius: 48, name: 'Orange', scoreValue: 6 },
-  { level: 4, image: imgLemon, radius: 58, name: 'Lemon', scoreValue: 10 },
-  { level: 5, image: imgApple, radius: 70, name: 'Apple', scoreValue: 15 },
-  { level: 6, image: imgPear, radius: 84, name: 'Pear', scoreValue: 21 },
-  { level: 7, image: imgPeach, radius: 98, name: 'Peach', scoreValue: 28 },
-  { level: 8, image: imgPineapple, radius: 114, name: 'Pineapple', scoreValue: 36 },
-  { level: 9, image: imgMelon, radius: 132, name: 'Melon', scoreValue: 45 },
-  { level: 10, image: imgWatermelon, radius: 155, name: 'Watermelon', scoreValue: 55 },
+  { level: 1, image: imgCherry, radius: 32, name: 'Cherry', scoreValue: 1 },
+  { level: 2, image: imgGrape, radius: 44, name: 'Grape', scoreValue: 3 },
+  { level: 3, image: imgOrange, radius: 58, name: 'Orange', scoreValue: 6 },
+  { level: 4, image: imgLemon, radius: 72, name: 'Lemon', scoreValue: 10 },
+  { level: 5, image: imgApple, radius: 88, name: 'Apple', scoreValue: 15 },
+  { level: 6, image: imgPear, radius: 106, name: 'Pear', scoreValue: 21 },
+  { level: 7, image: imgPeach, radius: 124, name: 'Peach', scoreValue: 28 },
+  { level: 8, image: imgPineapple, radius: 144, name: 'Pineapple', scoreValue: 36 },
+  { level: 9, image: imgMelon, radius: 166, name: 'Melon', scoreValue: 45 },
+  { level: 10, image: imgWatermelon, radius: 195, name: 'Watermelon', scoreValue: 55 },
 ]
 
 // Helper to get random fruit index (0-4) like original Suika
@@ -219,7 +219,12 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       
       setTxStatus(`🎉 Minted ${minted} seeds!`)
       setSeedsPending(0)
-      setTimeout(() => setTxStatus(''), 3000)
+      
+      // Tự động reset game sau khi mint thành công để người chơi bắt đầu ván mới
+      setTimeout(() => {
+        resetGame()
+        setTxStatus('')
+      }, 2000)
     } catch (error) {
       console.error('Error minting seeds:', error)
       setTxStatus('Error: ' + (error instanceof Error ? error.message : String(error)))
@@ -253,7 +258,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         width: GAME_WIDTH,
         height: GAME_HEIGHT,
         wireframes: false,
-        background: '#ffdcae',
+        background: '#e8f5e9', // Xanh lá sáng rực rỡ
       },
     })
     renderRef.current = render
@@ -440,7 +445,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     setGameStarted(true)
     setIsGameOver(false)
     setScore(0)
-    setSeedsPending(0)
+    // KHÔNG reset seedsPending ở đây để người chơi có thể tích lũy hạt
     fruitsMergedRef.current = Array(FRUITS.length).fill(0)
     gameStateRef.current = GameState.READY
 

@@ -12,7 +12,10 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: rgba(255, 255, 255, 0.02);
+  /* Tăng độ đậm lớp phủ lên 0.5 để chữ trắng nổi bật trên nền xanh */
+  background: rgba(0, 20, 0, 0.5);
+  backdrop-filter: blur(4px);
+  position: relative; 
 }
 
 .content-area {
@@ -22,14 +25,16 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  /* Thêm khoảng trống dưới cùng để tránh bị thanh menu che trên mobile */
+  padding-bottom: 2rem; 
 }
 
 /* ===================================================
-   2. SIDEBAR MENU (THANH ĐIỀU HƯỚNG HOẠT HÌNH)
+   2. SIDEBAR MENU (THANH ĐIỀU HƯỚNG)
    =================================================== */
 .sidebar-menu {
   width: 250px;
-  background: #2c3e50; /* Màu nền xanh đậm phẳng */
+  background: #2c3e50;
   border-right: 4px solid rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -38,6 +43,7 @@
   height: 100vh;
   z-index: 100;
   box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
 }
 
 .sidebar-header {
@@ -51,8 +57,8 @@
   font-weight: 900;
   line-height: 1.1;
   color: #f1c40f;
-  text-shadow: 2px 2px 0 #d35400; /* Hiệu ứng chữ nổi 3D */
-  transform: rotate(-3deg); /* Nghiêng nhẹ tinh nghịch */
+  text-shadow: 2px 2px 0 #d35400;
+  transform: rotate(-3deg);
 }
 
 .sidebar-nav {
@@ -61,15 +67,16 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-/* Nút Sidebar - Phong cách Cartoon */
 .sidebar-nav button {
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  border: 3px solid transparent; /* Viền ẩn mặc định */
+  border: 3px solid transparent;
   background: transparent;
   color: #ecf0f1;
   font-size: 1rem;
@@ -78,6 +85,7 @@
   cursor: pointer;
   transition: all 0.15s;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .sidebar-nav button:hover {
@@ -101,7 +109,9 @@
 .sidebar-footer {
   padding: 1.5rem 1rem;
   border-top: 4px solid rgba(0, 0, 0, 0.2);
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  z-index: 10;
 }
 
 .seeds-display {
@@ -129,11 +139,11 @@
 }
 
 /* ===================================================
-   3. TOP BAR & HEADER (THANH CÔNG CỤ)
+   3. TOP BAR & HEADER
    =================================================== */
-.top-bar, .app-header {
+.top-bar {
   padding: 1rem 2rem;
-  background: transparent; /* Để nền app hiển thị xuyên qua */
+  background: transparent;
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -141,113 +151,131 @@
   position: sticky;
   top: 0;
   z-index: 90;
+  pointer-events: none; /* Let clicks pass through empty areas */
 }
 
-/* Style lại nút Connect Button (ghi đè style mặc định nếu có thể hoặc bọc ngoài) */
-/* Lưu ý: ConnectButton của dApp Kit thường có style riêng, ta có thể tác động vào wrapper của nó */
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  margin-top: 20px;
+  pointer-events: auto; /* Enable clicks on buttons */
+  gap: 10px;
+}
+
 .top-bar-right button {
   background: #e74c3c !important;
   border-radius: 20px !important;
   font-weight: 900 !important;
   border: 3px solid #fff !important;
   box-shadow: 0 5px 0 #c0392b !important;
-  padding: 0.8rem 1.5rem !important;
+  padding: 0.6rem 1.2rem !important; /* Smaller padding */
   color: white !important;
+  font-size: 0.9rem !important;
 }
 
-.top-bar-right button:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
-}
-
-.top-bar-right button:active {
-  transform: translateY(5px) !important;
-  box-shadow: none !important;
-}
-
-/* Seed balance display in top bar */
 .seed-balance-display {
   display: flex;
   align-items: center;
   gap: 8px;
   background: linear-gradient(135deg, #2ecc71, #27ae60);
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 20px;
   border: 3px solid #fff;
   box-shadow: 0 4px 0 #1e8449;
-  margin-right: 12px;
+  margin-right: 0; /* Remove right margin to use gap */
 }
 
 .seed-icon-small {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .seed-amount {
   font-weight: 900;
   color: white;
-  font-size: 1.1rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-}
-
-.total-harvested {
-  background: #f1c40f;
-  border: 3px solid #fff;
-  box-shadow: 0 4px 0 #d35400;
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  color: #5d4037;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-size: 1rem;
 }
 
 /* ===================================================
-   4. RESPONSIVE LAYOUT (TỐI ƯU MOBILE)
+   4. MOBILE OPTIMIZATION (ĐIỆN THOẠI)
    =================================================== */
 @media (max-width: 768px) {
   .game-layout {
     flex-direction: column;
   }
 
+  /* Chuyển Sidebar thành Bottom Navigation Bar */
   .sidebar-menu {
     width: 100%;
-    height: auto;
+    height: auto; /* Chiều cao tự động theo nội dung */
     position: fixed;
     bottom: 0;
     top: auto;
-    flex-direction: row;
+    flex-direction: row; /* Xếp ngang */
     border-right: none;
     border-top: 4px solid rgba(0,0,0,0.2);
-    padding-bottom: 10px; /* Safe area cho iPhone */
+    padding-bottom: env(safe-area-inset-bottom, 10px); /* Hỗ trợ iPhone */
+    background: #2c3e50;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+    order: 999; /* Đẩy xuống cuối cùng về mặt hiển thị */
   }
 
+  /* Ẩn Header và Footer của Sidebar để tiết kiệm diện tích */
   .sidebar-header, .sidebar-footer {
-    display: none; /* Ẩn bớt để dành chỗ cho Menu trên mobile */
+    display: none; 
   }
 
   .sidebar-nav {
     flex-direction: row;
     padding: 0.5rem;
-    justify-content: space-around;
+    justify-content: space-around; /* Chia đều khoảng cách */
     gap: 5px;
+    overflow-x: auto; /* Cho phép cuộn ngang nếu màn hình quá bé */
+    overflow-y: hidden;
   }
 
   .sidebar-nav button {
-    flex-direction: column;
+    flex-direction: column; /* Icon trên, chữ dưới */
     padding: 0.5rem;
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     gap: 4px;
-    border-width: 2px;
+    border-width: 0; /* Bỏ viền để gọn hơn */
     border-radius: 10px;
+    min-width: 60px; /* Đảm bảo vùng bấm đủ lớn */
+    background: transparent;
   }
   
-  .sidebar-nav button.active {
-    box-shadow: 0 3px 0 #2980b9;
+  .sidebar-nav button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: none; /* Bỏ hiệu ứng dịch chuyển ngang */
   }
 
+  .sidebar-nav button.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f1c40f; /* Đổi màu chữ active */
+    border: none;
+    box-shadow: none;
+    transform: none;
+  }
+  
+  .sidebar-nav button .icon {
+    font-size: 1.5rem; /* Icon to hơn */
+  }
+
+  /* Điều chỉnh nội dung chính */
   .content-area {
-    padding-bottom: 90px; /* Tránh bị menu che mất nội dung */
+    padding: 1rem;
+    padding-bottom: 90px; /* Chừa chỗ cho Bottom Bar */
+  }
+  
+  .top-bar {
+    padding: 0.5rem 1rem;
+    height: auto;
+  }
+  
+  .top-bar-right {
+    margin-top: 10px;
+    width: 100%;
+    justify-content: flex-end;
   }
 }

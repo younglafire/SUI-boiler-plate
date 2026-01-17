@@ -57,7 +57,7 @@
   border-color: #e74c3c;
 }
 
-/* Nút nâng cấp - Phong cách Cartoon */
+/* Nút nâng cấp */
 .upgrade-btn {
   background: #8e44ad;
   border: 3px solid #fff;
@@ -69,11 +69,6 @@
   text-transform: uppercase;
   transition: all 0.1s;
   box-shadow: 0 5px 0 #6c3483;
-}
-
-.upgrade-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
 }
 
 .upgrade-btn:active:not(:disabled) {
@@ -89,7 +84,7 @@
 }
 
 /* ===================================================
-   3. TYPE FILTER (BỘ LỌC LOẠI TRÁI CÂY)
+   3. TYPE FILTER (BỘ LỌC)
    =================================================== */
 .type-filter {
   display: flex;
@@ -107,15 +102,9 @@
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 700;
-  transition: all 0.1s;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.filter-btn:hover {
-  background: #2c3e50;
-  transform: translateY(-2px);
 }
 
 .filter-btn.active {
@@ -126,114 +115,168 @@
   transform: translateY(-2px);
 }
 
-.filter-btn.active:active {
-  transform: translateY(2px);
-  box-shadow: 0 0 0 #2980b9;
-}
-
-.filter-fruit-img {
-  width: 24px;
-  height: 24px;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-}
+.filter-fruit-img { width: 24px; height: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
 
 /* ===================================================
    4. INVENTORY GRID (LƯỚI VẬT PHẨM)
    =================================================== */
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 1.2rem;
+  /* Tăng kích thước tối thiểu của ô lên 165px để khung to và rõ nét hơn */
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); 
+  gap: 1.5rem;
 }
 
 .inventory-item {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  padding: 1.2rem;
+  background: #fff9e3;
+  border-radius: 24px;
+  padding: 0.8rem; /* Tăng lại padding một chút cho cân đối với khung to */
   text-align: center;
-  border: 4px solid rgba(255,255,255,0.1); /* Viền dày hơn */
-  transition: transform 0.2s, background 0.2s;
+  border: 4px solid #e6d5b8;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+  justify-content: center;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.15);
+  color: #5d4037;
+  aspect-ratio: 1; 
+  position: relative;
+  overflow: hidden;
 }
 
 .inventory-item:hover {
-  transform: translateY(-6px);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #fff;
+  transform: translateY(-4px);
+  border-color: #f1c40f;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.1);
 }
 
 .item-icon {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.2rem;
   flex-grow: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .inventory-fruit-img {
-  width: 80px;
-  height: 80px;
+  width: 85%; 
+  height: auto;
+  max-height: 120px; /* Tăng giới hạn chiều cao cho phù hợp khung to */
   object-fit: contain;
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
-  transition: transform 0.2s;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.15));
 }
 
 .inventory-item:hover .inventory-fruit-img {
   transform: scale(1.1) rotate(5deg);
 }
 
+.item-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
 .item-name {
   font-weight: 900;
-  margin-bottom: 0.25rem;
-  font-size: 1rem;
+  margin-bottom: 0;
+  font-size: 0.9rem;
   text-transform: uppercase;
+  color: #5d4037;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
+
 .item-rarity {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   font-weight: 800;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
   padding: 2px 8px;
-  border-radius: 8px;
-  background: rgba(0,0,0,0.3);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.1);
+  color: #5d4037;
+  line-height: 1;
 }
+
 .item-weight {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   color: #fff;
   background: #e67e22;
-  padding: 4px 10px;
-  border-radius: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
   font-weight: bold;
   box-shadow: 0 2px 0 #d35400;
+  margin-top: 2px;
 }
+
+.empty-state { text-align: center; padding: 4rem 2rem; background: rgba(0,0,0,0.2); border-radius: 20px; border: 2px dashed rgba(255,255,255,0.1); }
+.empty-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.5; }
 
 /* ===================================================
-   5. EMPTY & LOADING STATES (TRẠNG THÁI TRỐNG)
+   5. MOBILE OPTIMIZATION
    =================================================== */
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: rgba(0,0,0,0.2);
-  border-radius: 20px;
-  border: 2px dashed rgba(255,255,255,0.1);
-}
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
 @media (max-width: 600px) {
+  .inventory-container {
+    padding: 1rem;
+  }
+
   .inventory-header {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
+  
+  .inventory-header h2 {
+    font-size: 1.8rem;
+  }
+
+  .inventory-capacity {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .capacity-text {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.8rem;
+  }
+  
+  .upgrade-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Grid 2 cột trên mobile */
   .inventory-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .inventory-item {
+    padding: 0.8rem;
+  }
+  
+  .inventory-fruit-img {
+    width: 60%; /* Nhỏ hơn chút trên mobile */
+  }
+  
+  .item-name { font-size: 0.8rem; }
+  .item-rarity { font-size: 0.6rem; }
+  .item-weight { font-size: 0.7rem; padding: 2px 6px; }
+  
+  .type-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+  
+  .filter-btn {
+    flex-shrink: 0;
   }
 }

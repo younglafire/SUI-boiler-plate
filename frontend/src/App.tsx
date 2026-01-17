@@ -248,8 +248,8 @@ function App() {
               <div className="seeds-display">
                 <img src={imgSeed} alt="Seed icon" className="icon seed-icon" />
                 <div>
-                  <div className="label">Your Seeds</div>
-                  <div className="value">{playerSeeds.toLocaleString()}</div>
+                  
+                  
                 </div>
               </div>
             </div>
@@ -300,12 +300,6 @@ function App() {
             </div>
           </div>
         </div>
-      )}
-
-      {account && (
-        <footer className="footer-v2">
-          SUI NETWORK • TESTNET • V2.0
-        </footer>
       )}
     </div>
   )

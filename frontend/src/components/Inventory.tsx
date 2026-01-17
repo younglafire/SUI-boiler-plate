@@ -148,6 +148,7 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
 
   // Upgrade inventory
   const upgradeInventory = async () => {
+    console.log('Upgrade button clicked!');
     if (!account?.address || !inventoryId) {
       setTxStatus('❌ Missing account or inventory')
       return
@@ -161,22 +162,24 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
       return
     }
     
-    // Find player account
+    // Find player account with specific filter to avoid pagination limits
     const objects = await suiClient.getOwnedObjects({
       owner: account.address,
+      filter: { StructType: `${PACKAGE_ID}::player::PlayerAccount` },
       options: { showType: true }
     })
     
-    const playerObj = objects.data.find(o => 
-      o.data?.type?.includes(`${PACKAGE_ID}::player::PlayerAccount`)
-    )
+    // With filter, the first object should be the one we want
+    const playerObj = objects.data[0]
     
     if (!playerObj?.data?.objectId) {
-      setTxStatus('❌ Player account not found')
+      console.error('Player account object not found (filtered search)');
+      setTxStatus('❌ Player account not found. Please refresh.')
       return
     }
 
     setTxStatus('⬆️ Upgrading inventory...')
+    console.log('Proceeding with upgrade transaction...');
     
     // Get SEED coins
     const seedCoins = await suiClient.getCoins({
@@ -189,48 +192,54 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
       return
     }
     
-    const tx = new Transaction()
-    
-    // Merge coins if needed
-    if (seedCoins.data.length > 1) {
-      const coinIds = seedCoins.data.map(coin => tx.object(coin.coinObjectId))
-      tx.mergeCoins(coinIds[0], coinIds.slice(1))
-    }
-    
-    // Split payment (cost increases with each upgrade)
-    const upgradeCost = calculateUpgradeCost(maxSlots)
-    const amountWithDecimals = upgradeCost * SEED_DECIMALS
-    const [payment] = tx.splitCoins(
-      tx.object(seedCoins.data[0].coinObjectId),
-      [tx.pure.u64(amountWithDecimals)]
-    )
-    
-    tx.moveCall({
-      target: `${PACKAGE_ID}::player::upgrade_inventory`,
-      arguments: [
-        tx.object(playerObj.data.objectId),
-        tx.object(inventoryId),
-        payment,
-        tx.object(SEED_ADMIN_CAP),
-      ],
-    })
-    
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          await suiClient.waitForTransaction({ digest: result.digest })
-          setTxStatus(`✅ Inventory upgraded! +${INVENTORY_SLOTS_PER_UPGRADE} slots`)
-          onUpdate?.()
-          setTimeout(() => setTxStatus(''), 3000)
-        },
-        onError: (error) => {
-          console.error('Error upgrading:', error)
-          setTxStatus('Error: ' + error.message)
-          setTimeout(() => setTxStatus(''), 5000)
-        },
+    try {
+      const tx = new Transaction()
+      
+      // Merge coins if needed
+      if (seedCoins.data.length > 1) {
+        const coinIds = seedCoins.data.map(coin => tx.object(coin.coinObjectId))
+        tx.mergeCoins(coinIds[0], coinIds.slice(1))
       }
-    )
+      
+      // Split payment (cost increases with each upgrade)
+      const upgradeCost = calculateUpgradeCost(maxSlots)
+      const amountWithDecimals = upgradeCost * SEED_DECIMALS
+      const [payment] = tx.splitCoins(
+        tx.object(seedCoins.data[0].coinObjectId),
+        [tx.pure.u64(amountWithDecimals)]
+      )
+      
+      tx.moveCall({
+        target: `${PACKAGE_ID}::player::upgrade_inventory`,
+        arguments: [
+          tx.object(playerObj.data.objectId),
+          tx.object(inventoryId),
+          payment,
+          tx.object(SEED_ADMIN_CAP),
+        ],
+      })
+      
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: async (result) => {
+            console.log('Upgrade success:', result);
+            await suiClient.waitForTransaction({ digest: result.digest })
+            setTxStatus(`✅ Inventory upgraded! +${INVENTORY_SLOTS_PER_UPGRADE} slots`)
+            onUpdate?.()
+            setTimeout(() => setTxStatus(''), 3000)
+          },
+          onError: (error) => {
+            console.error('Error upgrading:', error)
+            setTxStatus('Error: ' + error.message)
+            setTimeout(() => setTxStatus(''), 5000)
+          },
+        }
+      )
+    } catch (e) {
+      console.error('Error constructing transaction:', e);
+      setTxStatus('❌ Error constructing transaction');
+    }
   }
 
   const isFull = fruits.length >= maxSlots
@@ -249,10 +258,10 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
           {canUpgrade && (
             <button 
               className="upgrade-btn" 
-              onClick={upgradeInventory}
-              disabled={isPending || playerSeeds < Number(nextUpgradeCost)}
+              onClick={() => upgradeInventory()}
+              disabled={!!isPending}
             >
-              ⬆️ Upgrade (+{INVENTORY_SLOTS_PER_UPGRADE} slots, {nextUpgradeCost.toString()} SEED)
+              {isPending ? '⏳ Upgrading...' : `⬆️ Upgrade (+${INVENTORY_SLOTS_PER_UPGRADE} slots, ${nextUpgradeCost.toString()} SEED)`}
             </button>
           )}
           {!canUpgrade && (
@@ -322,9 +331,11 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
                 </div>
                 <div className="item-details">
                   <div className="item-name">{fruitInfo?.name || 'Unknown'}</div>
-                  <div className="item-rarity" style={{ color: getRarityColor(fruit.rarity) }}>
-                    {getRarityName(fruit.rarity)}
-                  </div>
+                  {fruit.rarity > 2 && (
+                    <div className="item-rarity" style={{ color: getRarityColor(fruit.rarity) }}>
+                      {getRarityName(fruit.rarity)}
+                    </div>
+                  )}
                   <div className="item-weight">{fruit.weight >= 1000 ? `${(fruit.weight / 1000).toFixed(2)}kg` : `${fruit.weight}g`}</div>
                 </div>
               </div>

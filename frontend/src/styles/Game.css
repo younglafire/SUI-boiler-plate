@@ -5,8 +5,8 @@ button {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   border: none;
   cursor: pointer;
-  transition: all 0.1s; /* Chuyển động nhanh cho cảm giác hoạt hình */
-  font-weight: 900; /* Chữ siêu đậm */
+  transition: all 0.1s;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 1px;
   display: flex;
@@ -15,14 +15,11 @@ button {
   gap: 8px;
   position: relative;
   outline: none;
-  
-  /* Tạo hình khối 3D */
   border-radius: 20px;
-  border: 3px solid rgba(0,0,0,0.1); /* Viền chìm nhẹ */
+  border: 3px solid rgba(0,0,0,0.1);
   transform: translateY(0);
 }
 
-/* Hiệu ứng bấm nút (Nhún xuống) */
 button:active {
   transform: translateY(4px) !important;
   box-shadow: 0 0 0 transparent !important;
@@ -37,22 +34,15 @@ button:disabled {
   box-shadow: none !important;
 }
 
-/* --- PLAY GAME / RESTART BUTTON (Màu Tím Mộng Mơ) --- */
+/* --- PLAY GAME / RESTART BUTTON --- */
 .btn-restart {
   padding: 1rem 3rem;
   font-size: 1.5rem !important;
   border-radius: 30px;
-  
   background: #9b59b6;
   color: white;
-  border: 4px solid #fff; /* Viền trắng nổi bật */
-  box-shadow: 0 8px 0 #6c3483; /* Bóng đổ cứng màu tím đậm */
-}
-
-.btn-restart:hover {
-  background: #a569bd;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 0 #6c3483;
+  border: 4px solid #fff;
+  box-shadow: 0 8px 0 #6c3483;
 }
 
 .btn-restart:active {
@@ -60,25 +50,18 @@ button:disabled {
   box-shadow: 0 0 0 #6c3483 !important;
 }
 
-/* --- MINT / HARVEST BUTTON (Màu Vàng/Cam Rực Rỡ) --- */
+/* --- MINT / HARVEST BUTTON --- */
 .btn-mint, .btn-harvest {
   padding: 0.8rem 1.5rem;
   border-radius: 16px;
-  color: #5d4037; /* Chữ màu nâu đất */
-  
+  color: #5d4037;
   background: #f1c40f;
   border: 3px solid #fff;
-  box-shadow: 0 6px 0 #d35400; /* Bóng cam đậm */
+  box-shadow: 0 6px 0 #d35400;
 }
 
 .btn-harvest {
   background: linear-gradient(to bottom, #f1c40f, #f39c12);
-}
-
-.btn-mint:hover, .btn-harvest:hover {
-  filter: brightness(1.1);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 0 #d35400;
 }
 
 .btn-mint:active, .btn-harvest:active {
@@ -87,29 +70,42 @@ button:disabled {
 }
 
 /* ===================================================
-   2. GAME STATS (BẢNG THÔNG SỐ TRÊN CANVAS)
+   2. GAME STATS & CANVAS (BỐ CỤC CHÍNH)
    =================================================== */
+
+.fruit-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Stats Bar */
 .game-stats {
   display: flex;
   gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(255, 255, 255, 0.05); /* Hiệu ứng kính tối */
+  padding: 0.25rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   width: 100%;
-  max-width: 600px; /* Khớp với chiều rộng canvas mới */
+  max-width: 900px;
   justify-content: space-around;
+  flex-shrink: 0;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 70px;
+  min-width: 60px;
 }
 
 .stat-label {
@@ -121,30 +117,27 @@ button:disabled {
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: #feca57;
   text-shadow: 0 0 10px rgba(254, 202, 87, 0.3);
 }
 
-/* Khu vực hiển thị quả tiếp theo */
-.stat.next {
-  min-width: auto;
-}
+.stat.next { min-width: auto; }
 .next-fruit-display {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .next-fruit-img {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
 }
@@ -154,25 +147,24 @@ button:disabled {
   text-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
 }
 
-/* ===================================================
-   3. CANVAS CONTAINER (KHUNG CHƠI GAME)
-   =================================================== */
-.fruit-game {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
+/* Canvas Container */
 .canvas-container {
   position: relative;
-  width: 600px;
-  height: 800px;
+  height: auto;
+  width: auto;
+  
+  /* Desktop defaults */
+  max-height: 60vh;
+  max-width: 100%;
+  aspect-ratio: 9/8; 
+  
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
-  background: #2c2c44; /* Màu nền tối hơn */
+  background: #2c2c44;
   border: 4px solid #8d6e63;
   z-index: 10;
+  flex-shrink: 1;
 }
 
 .canvas-container canvas {
@@ -182,7 +174,7 @@ button:disabled {
 }
 
 /* ===================================================
-   4. GAME OVERLAYS (MÀN HÌNH CHỜ/KẾT THÚC)
+   3. GAME OVERLAYS
    =================================================== */
 .game-overlay {
   position: absolute;
@@ -199,20 +191,18 @@ button:disabled {
   animation: fadeIn 0.3s ease;
 }
 
-.game-overlay button {
-  pointer-events: auto; 
-}
+.game-overlay button { pointer-events: auto; }
 
 .game-overlay h2 {
-  font-size: 2.2rem;
-  margin-bottom: 1rem;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
   color: #fff;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
 
 .instructions {
-  margin: 1.5rem 0;
+  margin: 1rem 0;
   text-align: left;
   background: rgba(255, 255, 255, 0.05);
   padding: 1rem;
@@ -220,22 +210,16 @@ button:disabled {
   border-left: 4px solid #feca57;
 }
 
-.instructions p {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .score-display {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 900;
   color: #feca57;
-  margin: 1rem 0;
+  margin: 0.5rem 0;
   text-shadow: 0 0 20px rgba(254, 202, 87, 0.4);
 }
 
 /* ===================================================
-   5. MODAL SYSTEM (HỆ THỐNG CỬA SỔ LỆNH)
+   4. MODAL SYSTEM
    =================================================== */
 .modal-overlay {
   position: fixed;
@@ -246,16 +230,18 @@ button:disabled {
   align-items: center;
   z-index: 2000;
   backdrop-filter: blur(8px);
+  padding: 20px; /* Thêm padding để không dính sát mép trên mobile */
 }
 
 .modal, .modal-content {
-  background: #2c3e50; /* Nền xanh đậm phẳng */
+  background: #2c3e50;
   padding: 2rem;
   border-radius: 30px;
-  min-width: 320px;
+  min-width: 300px;
+  width: 100%; /* Full width on mobile */
   max-width: 450px;
-  border: 5px solid #fff; /* Viền trắng to */
-  box-shadow: 0 15px 0 rgba(0,0,0,0.4); /* Bóng đổ cứng */
+  border: 5px solid #fff;
+  box-shadow: 0 15px 0 rgba(0,0,0,0.4);
   text-align: center;
 }
 
@@ -269,7 +255,7 @@ button:disabled {
   background: #34495e;
   color: #f1c40f;
   border: 3px solid #2c3e50;
-  box-shadow: inset 0 4px 0 rgba(0,0,0,0.2); /* Bóng đổ trong */
+  box-shadow: inset 0 4px 0 rgba(0,0,0,0.2);
   margin: 1rem 0;
 }
 
@@ -279,95 +265,73 @@ button:disabled {
   margin-top: 1.5rem;
 }
 
-/* Nút Confirm (Đỏ) */
-.btn-confirm { 
-  background: #e74c3c; 
-  color: white; 
-  flex: 1;
-  border-radius: 15px;
-  box-shadow: 0 5px 0 #c0392b;
-}
-.btn-confirm:active { box-shadow: 0 0 0 #c0392b !important; }
-
-/* Nút Cancel (Xám) */
-.btn-cancel { 
-  background: #95a5a6; 
-  color: white; 
-  flex: 1; 
-  border-radius: 15px;
-  box-shadow: 0 5px 0 #7f8c8d;
-}
-.btn-cancel:active { box-shadow: 0 0 0 #7f8c8d !important; }
+.btn-confirm { background: #e74c3c; color: white; flex: 1; border-radius: 15px; box-shadow: 0 5px 0 #c0392b; }
+.btn-cancel { background: #95a5a6; color: white; flex: 1; border-radius: 15px; box-shadow: 0 5px 0 #7f8c8d; }
 
 /* ===================================================
-   6. TRANSACTION TOASTS (THÔNG BÁO GIAO DỊCH)
+   5. SPECIAL OVERRIDES & MOBILE
    =================================================== */
 .tx-status {
   position: fixed;
-  bottom: 30px;
+  bottom: 80px; /* Cao hơn chút để tránh Bottom Nav */
   left: 50%;
   transform: translateX(-50%);
-  background: #27ae60; /* Màu xanh lá tươi */
+  background: #27ae60;
   color: white;
-  padding: 12px 24px;
+  padding: 10px 20px;
   border-radius: 50px;
   z-index: 2000;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-weight: bold;
   border: 3px solid #fff;
   box-shadow: 0 6px 0 #1e8449;
+  width: max-content;
+  max-width: 90%;
+  font-size: 0.9rem;
 }
 
-/* ===================================================
-   7. FRUIT EVOLUTION LEGEND (CHÚ THÍCH TIẾN HÓA)
-   =================================================== */
 .fruit-legend {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 1rem;
+  padding: 0.4rem 1rem;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 50px;
-  margin-top: 1.5rem;
+  margin-top: 0.25rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.fruit-img-legend {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
+.fruit-img-legend { width: 24px; height: 24px; object-fit: contain; }
+.mint-during-game { width: 100%; display: flex; justify-content: center; margin-top: 5px; z-index: 30; flex-shrink: 0; }
 
-.fruit-legend span {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* ===================================================
-   8. SPECIAL OVERRIDES
-   =================================================== */
-.mint-during-game {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-top: 15px;
-  z-index: 30;
-}
-
-@media (max-width: 480px) {
+@media (max-width: 600px) {
+  /* Cho phép game full width trên điện thoại */
   .canvas-container {
-    width: 320px;
-    height: 480px;
+    width: 100%;
+    aspect-ratio: 9/8; /* Giữ tỉ lệ */
+    max-height: none; /* Bỏ giới hạn chiều cao cố định để nó scale theo width */
+    height: auto;
+    border-width: 2px; /* Viền mỏng hơn */
   }
+  
   .game-stats {
-    padding: 0.75rem 1rem;
+    padding: 0.5rem;
     gap: 0.5rem;
-    max-width: 320px;
   }
+  
+  .stat-label { display: none; } /* Ẩn nhãn chữ để tiết kiệm chỗ */
   .stat-value { font-size: 1.2rem; }
-  .next-fruit-display { width: 40px; height: 40px; }
-  .next-fruit-img { width: 30px; height: 30px; }
+  
+  .btn-restart {
+    font-size: 1.2rem !important;
+    padding: 0.8rem 2rem;
+  }
+  
+  .score-display { font-size: 2rem; }
+  .game-overlay h2 { font-size: 1.5rem; }
 }
