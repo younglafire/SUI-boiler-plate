@@ -175,22 +175,28 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
         },
         onError: (error) => { setTxStatus('❌ Mint Failed: ' + error.message); setTimeout(() => setTxStatus(''), 5000); }
       });
-    } catch (err) { setTxStatus('❌ Error'); }
+    } catch (err) { setTxStatus('❌ Error creating transaction'); }
   };
 
   const upgradeInventory = async () => {
     if (!account?.address || !inventoryId) return
-    const neededSeeds = Number(calculateUpgradeCost(maxSlots))
+    const upgradeCost = calculateUpgradeCost(maxSlots)
+    const neededSeeds = Number(upgradeCost)
     if (playerSeeds < neededSeeds) { setTxStatus(`❌ Need ${neededSeeds} SEED`); return }
+    
     const objects = await suiClient.getOwnedObjects({ owner: account.address, filter: { StructType: `${PACKAGE_ID}::player::PlayerAccount` }, options: { showType: true } })
     const playerObj = objects.data[0]; if (!playerObj?.data?.objectId) return
     setTxStatus('⬆️ Upgrading...');
+    
     const seedCoins = await suiClient.getCoins({ owner: account.address, coinType: SEED_COIN_TYPE })     
     if (seedCoins.data.length === 0) return
+    
     const tx = new Transaction()
     if (seedCoins.data.length > 1) tx.mergeCoins(tx.object(seedCoins.data[0].coinObjectId), seedCoins.data.slice(1).map(c => tx.object(c.coinObjectId)))
+    
     const [payment] = tx.splitCoins(tx.object(seedCoins.data[0].coinObjectId), [tx.pure.u64(upgradeCost * SEED_DECIMALS)])
     tx.moveCall({ target: `${PACKAGE_ID}::player::upgrade_inventory`, arguments: [tx.object(playerObj.data.objectId), tx.object(inventoryId), payment, tx.object(SEED_ADMIN_CAP)] })
+    
     signAndExecute({ transaction: tx }, { onSuccess: async (result) => { await suiClient.waitForTransaction({ digest: result.digest }); onUpdate?.(); setTxStatus('✅ Upgraded!'); setTimeout(() => setTxStatus(''), 3000); } })
   }
 

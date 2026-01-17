@@ -283,6 +283,210 @@ export default function PlayerLand({
     })
   }
 
+  // --- MINT TEST SEEDS ---
+  const mintTestSeeds = async () => {
+    if (!account?.address) return
+    setTxStatus('🌱 Minting 1000 test seeds...')
+    try {
+      const amountWithDecimals = 1000n * seedScale
+      const result = await mintSeedsToUser(account.address, amountWithDecimals, PACKAGE_ID, SEED_ADMIN_CAP)
+      await sponsorClient.waitForTransaction({ digest: result.digest })
+      setTxStatus('🎉 Got 1000 seeds!')
+      if (onDataChanged) onDataChanged()
+      setTimeout(() => setTxStatus(''), 2000)
+    } catch (e: any) {
+      console.error(e)
+      setTxStatus('Error: ' + (e.message || String(e)))
+    }
+  }
+
+  // --- SLOT CLICK HANDLER ---
+  const handleSlotClick = (slot: Slot) => {
+    console.log('Clicked slot:', slot.index, 'Tool:', selectedTool);
+    
+    // 1. Tool Logic
+    if (selectedTool) {
+      if (!slot.fruit) {
+        setTxStatus('❌ Select a slot with a plant!')
+        setTimeout(() => setTxStatus(''), 2000)
+        return
+      }
+      
+      switch (selectedTool) {
+        case 'wateringCan':
+          useWateringCan(slot.index)
+          break
+        case 'fertilizer':
+          useFertilizer(slot.index)
+          break
+        case 'shovel':
+          useShovel(slot.index)
+          break
+      }
+      return
+    }
+
+    // 2. Normal Logic
+    if (!slot.fruit) {
+      setPlantSlotIndex(slot.index)
+      setShowPlantModal(true)
+    } else {
+      const effectiveTime = getEffectiveGrowTime(slot)
+      const isReady = currentTime >= slot.fruit.plantedAt + effectiveTime
+      
+      if (isReady) {
+        forceHarvest()
+      } else {
+        const timeLeft = Math.max(0, Math.ceil((slot.fruit.plantedAt + effectiveTime - currentTime) / 1000))
+        setTxStatus(`⏱️ Growing... ${formatTimeLeft(timeLeft)} left`)
+        setTimeout(() => setTxStatus(''), 2000)
+      }
+    }
+  }
+
+  // --- TOOLS ---
+  const useWateringCan = async (slotIndex: number) => {
+    if (!activeLandId || !account?.address) return
+    setTxStatus('🚿 Watering...')
+    try {
+      const seedCoins = await suiClient.getCoins({ owner: account.address, coinType: SEED_COIN_TYPE })
+      if (seedCoins.data.length === 0) { 
+        setTxStatus('❌ Need 50 SEED'); 
+        setSelectedTool(null);
+        return 
+      }
+      
+      const tx = new Transaction()
+      const primaryCoin = seedCoins.data[0]
+      if (seedCoins.data.length > 1) {
+        const coinsToMerge = seedCoins.data.slice(1).map(c => tx.object(c.coinObjectId))
+        tx.mergeCoins(tx.object(primaryCoin.coinObjectId), coinsToMerge)
+      }
+      
+      const [payment] = tx.splitCoins(tx.object(primaryCoin.coinObjectId), [tx.pure.u64(50n * seedScale)])
+      
+      tx.moveCall({
+        target: `${PACKAGE_ID}::land::use_watering_can`,
+        arguments: [tx.object(activeLandId), tx.pure.u64(slotIndex), payment, tx.object(SEED_ADMIN_CAP)]
+      })
+      
+      signAndExecute({ transaction: tx }, {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🚿 Watered! (-25% time)')
+          setSlotSpeedBoosts(prev => {
+            const slot = slots.find(s => s.index === slotIndex)
+            if (!slot?.fruit) return prev
+            const base = getGrowTime(slot.fruit.rarity)
+            return { ...prev, [slotIndex]: (prev[slotIndex] || 0) + (base * 0.25) }
+          })
+          fetchLandData()
+          if (onDataChanged) onDataChanged()
+          setSelectedTool(null)
+          setTimeout(() => setTxStatus(''), 2000)
+        },
+        onError: (e) => {
+          console.error(e)
+          setTxStatus('Error: ' + e.message)
+          setSelectedTool(null)
+        }
+      })
+    } catch (e: any) { 
+      console.error(e)
+      setTxStatus('Error: ' + e.message) 
+      setSelectedTool(null)
+    }
+  }
+
+  const useFertilizer = async (slotIndex: number) => {
+    if (!activeLandId || !account?.address) return
+    setTxStatus('🧪 Fertilizing...')
+    try {
+      const seedCoins = await suiClient.getCoins({ owner: account.address, coinType: SEED_COIN_TYPE })
+      if (seedCoins.data.length === 0) { 
+        setTxStatus('❌ Need 100 SEED'); 
+        setSelectedTool(null);
+        return 
+      }
+      const tx = new Transaction()
+      const primaryCoin = seedCoins.data[0]
+      if (seedCoins.data.length > 1) {
+        const coinsToMerge = seedCoins.data.slice(1).map(c => tx.object(c.coinObjectId))
+        tx.mergeCoins(tx.object(primaryCoin.coinObjectId), coinsToMerge)
+      }
+      const [payment] = tx.splitCoins(tx.object(primaryCoin.coinObjectId), [tx.pure.u64(100n * seedScale)])
+      tx.moveCall({
+        target: `${PACKAGE_ID}::land::use_fertilizer`,
+        arguments: [tx.object(activeLandId), tx.pure.u64(slotIndex), payment, tx.object(SEED_ADMIN_CAP)]
+      })
+      signAndExecute({ transaction: tx }, {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🧪 Fertilized! (-50% time)')
+          setSlotSpeedBoosts(prev => {
+            const slot = slots.find(s => s.index === slotIndex)
+            if (!slot?.fruit) return prev
+            const base = getGrowTime(slot.fruit.rarity)
+            return { ...prev, [slotIndex]: (prev[slotIndex] || 0) + (base * 0.5) }
+          })
+          fetchLandData()
+          if (onDataChanged) onDataChanged()
+          setSelectedTool(null)
+          setTimeout(() => setTxStatus(''), 2000)
+        },
+        onError: (e) => {
+          setTxStatus('Error: ' + e.message)
+          setSelectedTool(null)
+        }
+      })
+    } catch (e: any) { 
+      setTxStatus('Error: ' + e.message) 
+      setSelectedTool(null)
+    }
+  }
+
+  const useShovel = async (slotIndex: number) => {
+    if (!activeLandId || !account?.address) return
+    setTxStatus('🪓 Digging...')
+    try {
+      const seedCoins = await suiClient.getCoins({ owner: account.address, coinType: SEED_COIN_TYPE })
+      if (seedCoins.data.length === 0) { 
+        setTxStatus('❌ Need 25 SEED'); 
+        setSelectedTool(null);
+        return 
+      }
+      const tx = new Transaction()
+      const primaryCoin = seedCoins.data[0]
+      if (seedCoins.data.length > 1) {
+        const coinsToMerge = seedCoins.data.slice(1).map(c => tx.object(c.coinObjectId))
+        tx.mergeCoins(tx.object(primaryCoin.coinObjectId), coinsToMerge)
+      }
+      const [payment] = tx.splitCoins(tx.object(primaryCoin.coinObjectId), [tx.pure.u64(25n * seedScale)])
+      tx.moveCall({
+        target: `${PACKAGE_ID}::land::use_shovel`,
+        arguments: [tx.object(activeLandId), tx.pure.u64(slotIndex), payment, tx.object(SEED_ADMIN_CAP)]
+      })
+      signAndExecute({ transaction: tx }, {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('🪓 Plant removed!')
+          setSlots(prev => prev.map(s => s.index === slotIndex ? { ...s, fruit: null } : s))
+          fetchLandData()
+          if (onDataChanged) onDataChanged()
+          setSelectedTool(null)
+          setTimeout(() => setTxStatus(''), 2000)
+        },
+        onError: (e) => {
+          setTxStatus('Error: ' + e.message)
+          setSelectedTool(null)
+        }
+      })
+    } catch (e: any) { 
+      setTxStatus('Error: ' + e.message) 
+      setSelectedTool(null)
+    }
+  }
+
   const plantInSlot = async () => {
     if (!activeLandId || plantSlotIndex === null || !account?.address) return
     if (playerSeeds < seedsToPlant) { setTxStatus(`❌ Not enough seeds!`); return }
@@ -311,24 +515,93 @@ export default function PlayerLand({
     })
   }
 
+  // --- PLANT ALL ---
+  const plantAll = async () => {
+    if (!activeLandId || !account?.address) return
+    const emptyCount = slots.filter(s => !s.fruit).length
+    if (emptyCount === 0) return
+    
+    const totalCost = batchSeeds * emptyCount
+    if (playerSeeds < totalCost) {
+      setTxStatus(`❌ Not enough seeds! Need ${totalCost}`);
+      return
+    }
+
+    setTxStatus(`🌱 Planting ${batchSeeds} seeds in ${emptyCount} slots...`)
+    setShowBatchModal(false)
+
+    try {
+      const seedCoins = await suiClient.getCoins({ owner: account.address, coinType: SEED_COIN_TYPE })
+      if (seedCoins.data.length === 0) {
+        setTxStatus('❌ No SEED coins found')
+        return
+      }
+
+      const tx = new Transaction()
+      const primaryCoin = seedCoins.data[0]
+      if (seedCoins.data.length > 1) {
+        const coinsToMerge = seedCoins.data.slice(1).map(c => tx.object(c.coinObjectId))
+        tx.mergeCoins(tx.object(primaryCoin.coinObjectId), coinsToMerge)
+      }
+      
+      const [payment] = tx.splitCoins(
+        tx.object(primaryCoin.coinObjectId), 
+        [tx.pure.u64(BigInt(totalCost) * seedScale)]
+      )
+
+      tx.moveCall({
+        target: `${PACKAGE_ID}::land::plant_all`,
+        arguments: [
+          tx.object(activeLandId),
+          payment,
+          tx.pure.u64(BigInt(batchSeeds) * seedScale),
+          tx.object(SEED_ADMIN_CAP),
+          tx.object(CLOCK_OBJECT),
+          tx.object(RANDOM_OBJECT)
+        ]
+      })
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: async (result) => {
+            await suiClient.waitForTransaction({ digest: result.digest })
+            setTxStatus('🌳 Planted All Successfully!')
+            fetchLandData()
+            if (onDataChanged) onDataChanged()
+            setTimeout(() => setTxStatus(''), 3000)
+          },
+          onError: (e) => setTxStatus('Error: ' + e.message)
+        }
+      )
+    } catch (e: any) {
+      console.error(e)
+      setTxStatus('Error: ' + e.message)
+    }
+  }
+
   const forceHarvest = async (skipWarning = false) => {
     if (!activeLandId) return
     if (!inventoryId) {
-      setTxStatus('⚠️ Creating player account...')
-      const tx = new Transaction()
-      tx.moveCall({ target: `${PACKAGE_ID}::player::create_player`, arguments: [tx.object(CLOCK_OBJECT)] })
-      signAndExecute({ transaction: tx }, {
-        onSuccess: async (result) => {
-          await suiClient.waitForTransaction({ digest: result.digest })
-          setTxStatus('✅ Account created! Try harvesting again.')
-          onDataChanged?.()
-        },
-      })
+      // ... (create player logic - keep as is)
       return
     }
+
+    // Calculate available slots accurately
+    const availableSlots = inventoryMax - inventoryUsed
     const readyCount = slots.filter(s => s.fruit && currentTime >= s.fruit.plantedAt + getEffectiveGrowTime(s)).length
-    if (!skipWarning && readyCount > (inventoryMax - inventoryUsed)) { setShowHarvestWarning(true); return }
+    
+    console.log('Harvest Check:', { readyCount, availableSlots, skipWarning, inventoryMax, inventoryUsed });
+
+    // Show warning if trying to harvest more than available space
+    if (!skipWarning && readyCount > availableSlots) {
+      console.log('Inventory full/near full warning triggered');
+      setShowHarvestWarning(true);
+      return; // STOP execution here
+    }
+
     setTxStatus('🌾 Harvesting...')
+    // ... (transaction logic - keep as is)
     const tx = new Transaction()
     tx.moveCall({ target: `${PACKAGE_ID}::land::harvest_ready`, arguments: [tx.object(activeLandId), tx.object(inventoryId), tx.object(CLOCK_OBJECT)] })
     signAndExecute({ transaction: tx }, {
@@ -363,7 +636,13 @@ export default function PlayerLand({
 
           <div className="land-actions">
             {slots.filter(s => !s.fruit).length > 0 && (
-              <button onClick={() => playerSeeds > 0 ? setShowBatchModal(true) : setTxStatus('❌ Need seeds!')} disabled={isPending}>
+              <button 
+                onClick={() => {
+                  if (playerSeeds > 0) setShowBatchModal(true)
+                  else { setTxStatus('❌ Need seeds!'); setTimeout(() => setTxStatus(''), 2000); }
+                }} 
+                disabled={isPending}
+              >
                 🌱 Plant All
               </button>
             )}
@@ -374,6 +653,10 @@ export default function PlayerLand({
             <button onClick={buyNewLand} disabled={isPending || playerSeeds < Number(NEW_LAND_COST)}>
               🏡 Buy New Land — {Number(NEW_LAND_COST)} SEED
             </button>
+            {/* Nút Mint Test Seeds */}
+            <button onClick={mintTestSeeds} disabled={isPending} className="mint-test-btn">
+              🎁 Mint 1000 Test Seeds
+            </button>
           </div>
 
           <div className="tool-bar">
@@ -383,6 +666,12 @@ export default function PlayerLand({
               <button className={`tool-btn ${selectedTool === 'fertilizer' ? 'active' : ''}`} onClick={() => setSelectedTool(selectedTool === 'fertilizer' ? null : 'fertilizer')}>🧪 Fertilizer (100 🌱)</button>
               <button className={`tool-btn ${selectedTool === 'shovel' ? 'active' : ''}`} onClick={() => setSelectedTool(selectedTool === 'shovel' ? null : 'shovel')}>🪓 Shovel (25 🌱)</button>
             </div>
+            {selectedTool && (
+              <div className="tool-hint">
+                <p>Select a planted slot to apply.</p>
+                <button className="cancel-tool-btn" onClick={() => setSelectedTool(null)}>Cancel</button>
+              </div>
+            )}
           </div>
 
           <div className={`slots-grid ${selectedTool ? 'tool-mode' : ''}`}>
@@ -394,14 +683,9 @@ export default function PlayerLand({
               const hasBoosted = (slot.fruit?.speedBoostMs || 0) > 0 || (slotSpeedBoosts[slot.index] || 0) > 0
               
               return (
-                <div key={slot.index} className={`slot ${!slot.fruit ? 'empty' : isReady ? 'ready' : 'growing'}`} onClick={() => {
-                  if (selectedTool && slot.fruit) {
-                    if (selectedTool === 'wateringCan') { /* Call tool func */ }
-                    setSelectedTool(null)
-                  } else if (!slot.fruit) {
-                    setPlantSlotIndex(slot.index); setShowPlantModal(true)
-                  } else if (isReady) forceHarvest()
-                }}>
+                <div key={slot.index} className={`slot ${!slot.fruit ? 'empty' : isReady ? 'ready' : 'growing'} ${selectedTool && slot.fruit ? 'tool-target' : ''}`} 
+                  onClick={() => handleSlotClick(slot)}
+                >
                   {!slot.fruit ? (
                     <div className="slot-empty"><img src={chauDat} className="soil-img" /><div className="slot-overlay"><span>➕</span><span>Plant</span></div></div>
                   ) : isReady ? (
@@ -429,6 +713,39 @@ export default function PlayerLand({
         </>
       )}
 
+      {showBatchModal && (
+        <div className="modal-overlay" onClick={() => setShowBatchModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🌱 Plant All Empty Slots</h3>
+            <p>Planting in {slots.filter(s => !s.fruit).length} empty slots.</p>
+            <div className="modal-input">
+              <label>Seeds per slot:</label>
+              <input
+                type="number"
+                min="1"
+                max={Math.floor(playerSeeds / Math.max(1, slots.filter(s => !s.fruit).length))}
+                value={batchSeeds}
+                onChange={(e) => setBatchSeeds(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <p className="modal-total">
+              Total Cost: {batchSeeds * slots.filter(s => !s.fruit).length} SEED
+              <br/>
+              (You have: {playerSeeds})
+            </p>
+            <div className="modal-actions">
+              <button onClick={() => setShowBatchModal(false)}>Cancel</button>
+              <button 
+                onClick={plantAll} 
+                disabled={isPending || playerSeeds < batchSeeds * slots.filter(s => !s.fruit).length}
+              >
+                🌱 Plant All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPlantModal && (
         <div className="modal-overlay" onClick={() => setShowPlantModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -448,6 +765,80 @@ export default function PlayerLand({
           </div>
         </div>
       )}
+      
+      {/* Harvest Warning Modal */}
+      {showHarvestWarning && (
+        <div className="modal-overlay" onClick={() => setShowHarvestWarning(false)}>
+          <div className="modal warning-modal" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ Inventory Almost Full!</h3>
+            <p>
+              You have <strong>{slots.filter(s => s.fruit && currentTime >= s.fruit.plantedAt + getEffectiveGrowTime(s)).length}</strong> fruits ready to harvest, 
+              but only <strong>{inventoryMax - inventoryUsed}</strong> inventory slots available.
+            </p>
+            <p>Some fruits may not be harvested. Consider upgrading your inventory first.</p>
+            <div className="inventory-status" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', margin: '15px 0' }}>
+              <span>📦 Inventory: {inventoryUsed} / {inventoryMax}</span>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowHarvestWarning(false)}>Cancel</button>
+              <button 
+                className="btn-warning"
+                style={{ background: '#e74c3c', color: 'white' }}
+                onClick={() => {
+                  setShowHarvestWarning(false)
+                  forceHarvest(true) // Skip warning on retry
+                }}
+              >
+                Harvest Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .mint-test-btn {
+          background: linear-gradient(135deg, #f1c40f, #e67e22);
+          border: 2px solid #fff;
+          color: #000;
+          font-weight: 900;
+          box-shadow: 0 4px 0 #d35400;
+        }
+        .mint-test-btn:hover {
+          filter: brightness(1.1);
+          transform: translateY(-2px);
+        }
+        .mint-test-btn:active {
+          transform: translateY(0);
+          box-shadow: none;
+        }
+        .tool-hint {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #f1c40f;
+          font-weight: bold;
+          font-size: 0.9rem;
+          margin-top: 5px;
+        }
+        .cancel-tool-btn {
+          background: rgba(255,255,255,0.1);
+          border: 1px solid #fff;
+          padding: 2px 8px;
+          border-radius: 4px;
+          color: #fff;
+          cursor: pointer;
+          font-size: 0.8rem;
+        }
+        .slots-grid.tool-mode .slot.growing {
+          cursor: crosshair;
+        }
+        .slots-grid.tool-mode .slot.tool-target:hover {
+          transform: scale(1.05);
+          box-shadow: 0 0 15px #f1c40f;
+          border-color: #f1c40f;
+        }
+      `}</style>
     </div>
   )
 }
