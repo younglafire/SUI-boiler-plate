@@ -24,6 +24,11 @@ import imgApple from './assets/fruit/Táo.png'
 import imgGrape from './assets/fruit/Nho.png'
 import imgLemon from './assets/fruit/Chanh.png'
 import imgWatermelon from './assets/fruit/Dưa hấu.png'
+import imgPeach from './assets/fruit/Đào.png'
+import imgPineapple from './assets/fruit/Thơm.png'
+import imgPear from './assets/fruit/Lê.png'
+import imgCherry from './assets/fruit/Cherry.png'
+import imgOrange from './assets/fruit/Cam.png'
 import imgSeed from './assets/Hạt 1.svg' // Using Hạt 1.svg for the seed icon
 
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
@@ -133,33 +138,60 @@ function App() {
      =================================================== */
   return (
     <div className="app">
-      <div className="floating-fruits">
-        <img src={imgApple} alt="Apple" className="fruit-1" />
-        <img src={imgGrape} alt="Grape" className="fruit-2" />
-        <img src={imgLemon} alt="Lemon" className="fruit-3" />
-        <img src={imgWatermelon} alt="Watermelon" className="fruit-4" />
-      </div>
-
       {!account ? (
         /* 2. TRANG CHÀO MỪNG (Khi chưa Connect) */
         <div className="landing-page">
+          {/* Sky Elements */}
+          <div className="sky-container">
+            <div className="sun"></div>
+            <div className="cloud c1"></div>
+            <div className="cloud c2"></div>
+            <div className="cloud c3"></div>
+          </div>
+
+          {/* Farm Background Layers */}
+          <div className="farm-hills">
+            <div className="hill hill-back"></div>
+            <div className="hill hill-front"></div>
+          </div>
+          
+          <div className="floating-fruits">
+            <img src={imgWatermelon} className="fruit-float f1" />
+            <img src={imgPineapple} className="fruit-float f2" />
+            <img src={imgGrape} className="fruit-float f3" />
+            <img src={imgLemon} className="fruit-float f4" />
+            <img src={imgApple} className="fruit-float f5" />
+            <img src={imgPeach} className="fruit-float f6" />
+            <img src={imgOrange} className="fruit-float f7" />
+            <img src={imgWatermelon} className="fruit-float f8" />
+            <img src={imgPear} className="fruit-float f9" />
+            <img src={imgGrape} className="fruit-float f10" />
+            <img src={imgCherry} className="fruit-float f11" />
+            <img src={imgLemon} className="fruit-float f12" />
+          </div>
           <div className="landing-content">
             <div className="badge">SUI NETWORK • TESTNET</div>
-            <h1 className="hero-title">🍉 FRUIT MERGE <span>V2.0</span></h1>
+            
+            {/* New Title & Vibe */}
+            <h1 className="hero-title watery-text">WATERY</h1>
+            
             <p className="hero-subtitle">
-              Trải nghiệm game Merge-to-Earn hấp dẫn nhất hệ sinh thái Sui. 
-              Hợp nhất trái cây, thu hoạch hạt giống và xây dựng nông trại số của riêng bạn.
+              Dive into the juiciest merge game on Sui! <br/>
+              Merge fruits, collect seeds, and build your dream farm.
             </p>
             
             <div className="features-preview">
-              <div className="f-item"><span>🎮</span> <p>Play Game</p></div>
-              <div className="f-item"><span>🌱</span> <p>Earn Seeds</p></div>
-              <div className="f-item"><span>🏡</span> <p>Build Farm</p></div>
+              <div className="f-item bounce-1"><span>🍉</span> <p>Merge</p></div>
+              <div className="f-item bounce-2"><span>✨</span> <p>Collect</p></div>
+              <div className="f-item bounce-3"><span>🏝️</span> <p>Farm</p></div>
             </div>
 
             <div className="big-connect-wrapper">
-              <ConnectButton />
-              <p className="cta-hint">Kết nối ví Sui để bắt đầu hành trình của bạn</p>
+              {/* This wrapper helps us style the button as a fruit */}
+              <div className="watermelon-btn-container">
+                <ConnectButton className="watermelon-btn" />
+              </div>
+              <p className="cta-hint">Connect Wallet to Splash In!</p>
             </div>
           </div>
         </div>
@@ -248,9 +280,11 @@ function App() {
         </div>
       )}
 
-      <footer className="footer-v2">
-        SUI NETWORK • TESTNET • V2.0
-      </footer>
+      {account && (
+        <footer className="footer-v2">
+          SUI NETWORK • TESTNET • V2.0
+        </footer>
+      )}
     </div>
   )
 }
