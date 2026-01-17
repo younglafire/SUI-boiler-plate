@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSuiClient, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
+import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
 
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
 const LEADERBOARD_CONFIG_ID = '0xba8c7f6735c3f7d221c056a102be5afa413d444b4c296fb7db4a9f001397943c'
@@ -59,7 +60,11 @@ interface LeaderboardProps {
 export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
+  // Keep useSignAndExecuteTransaction for joinLeaderboard (requires SUI payment)
+  const { mutate: signAndExecute, isPending: isJoinPending } = useSignAndExecuteTransaction()
+  // Use sponsored transaction for other operations
+  const { mutate: signAndExecuteSponsored, isPending: isSponsoredPending } = useSponsoredTransaction()
+  const isPending = isJoinPending || isSponsoredPending
   
   const [currentRound, setCurrentRound] = useState<LeaderboardRound | null>(null)
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
@@ -203,7 +208,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
     }
   }
 
-  // Create new round (auto-triggered when needed)
+  // Create new round (auto-triggered when needed) - SPONSORED
   const createNewRound = useCallback(async () => {
     if (!account) {
       console.log('Cannot create round: wallet not connected')
@@ -225,7 +230,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
         ],
       })
 
-      signAndExecute(
+      signAndExecuteSponsored(
         { transaction: tx },
         {
           onSuccess: async (result) => {
@@ -252,7 +257,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
         }
       )
     })
-  }, [account, signAndExecute, findLatestRound, fetchRoundData, onUpdate])
+  }, [account, signAndExecuteSponsored, findLatestRound, fetchRoundData, onUpdate])
 
   // Join leaderboard
   const joinLeaderboard = async () => {
@@ -297,7 +302,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
     )
   }
 
-  // Update entry (re-scan for heaviest fruit)
+  // Update entry (re-scan for heaviest fruit) - SPONSORED
   const updateEntry = async () => {
     if (!account || !inventoryId || !currentRound?.objectId) {
       setTxStatus('Missing required objects')
@@ -316,7 +321,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
       ],
     })
 
-    signAndExecute(
+    signAndExecuteSponsored(
       { transaction: tx },
       {
         onSuccess: async (result) => {
@@ -336,7 +341,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
     )
   }
 
-  // Close round and distribute prizes (auto-triggered)
+  // Close round and distribute prizes (auto-triggered) - SPONSORED
   const closeRoundAndDistribute = useCallback(async () => {
     if (!account || !currentRound?.objectId) {
       return false
@@ -356,7 +361,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
         ],
       })
 
-      signAndExecute(
+      signAndExecuteSponsored(
         { transaction: tx },
         {
           onSuccess: async (result) => {
@@ -377,9 +382,9 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
         }
       )
     })
-  }, [account, currentRound, signAndExecute, fetchRoundData, onUpdate])
+  }, [account, currentRound, signAndExecuteSponsored, fetchRoundData, onUpdate])
 
-  // Reset inventory after round ends
+  // Reset inventory after round ends - SPONSORED
   const resetInventory = async () => {
     if (!account || !inventoryId || !currentRound?.objectId) {
       setTxStatus('Missing required objects')
@@ -398,7 +403,7 @@ export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps)
       ],
     })
 
-    signAndExecute(
+    signAndExecuteSponsored(
       { transaction: tx },
       {
         onSuccess: async (result) => {

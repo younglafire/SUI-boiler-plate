@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
+import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
+import { useSponsoredTransaction, mintSeedsToUser, sponsorClient } from '../hooks/useSponsoredTransaction'
 
 // Soil Assets
 import chauDat from '../assets/Chậu đất.svg'
@@ -117,7 +118,7 @@ export default function PlayerLand({
 }: PlayerLandProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
+  const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
   
   // Multi-land support
   const [allLands, setAllLands] = useState<LandInfo[]>([])
@@ -697,37 +698,37 @@ export default function PlayerLand({
     )
   }
 
-  // Mint test seeds (for testing/hackathon)
+  // Mint test seeds (for testing/hackathon) - SPONSORED TRANSACTION (no wallet popup!)
   const mintTestSeeds = async () => {
+    if (!account?.address) {
+      setTxStatus('❌ Connect wallet first')
+      setTimeout(() => setTxStatus(''), 3000)
+      return
+    }
+    
     setTxStatus('🌱 Minting 1000 test seeds...')
-    const tx = new Transaction()
     
-    // Multiply by 10^9 for 9 decimals
-    const amountWithDecimals = 1000n * seedScale
-    
-    tx.moveCall({
-      target: `${PACKAGE_ID}::player::mint_seeds`,
-      arguments: [
-        tx.object(SEED_ADMIN_CAP),
-        tx.pure.u64(amountWithDecimals),
-      ],
-    })
-
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          await suiClient.waitForTransaction({ digest: result.digest })
-          if (onDataChanged) await onDataChanged()
-          setTxStatus('🎉 Got 1000 seeds!')
-          setTimeout(() => setTxStatus(''), 2000)
-        },
-        onError: (error) => {
-          console.error('Error minting seeds:', error)
-          setTxStatus('Error: ' + error.message)
-        },
-      }
-    )
+    try {
+      // Multiply by 10^9 for 9 decimals
+      const amountWithDecimals = 1000n * seedScale
+      
+      // Use sponsored transaction - NO WALLET POPUP!
+      const result = await mintSeedsToUser(
+        account.address,
+        amountWithDecimals,
+        PACKAGE_ID,
+        SEED_ADMIN_CAP
+      )
+      
+      await sponsorClient.waitForTransaction({ digest: result.digest })
+      if (onDataChanged) await onDataChanged()
+      setTxStatus('🎉 Got 1000 seeds!')
+      setTimeout(() => setTxStatus(''), 2000)
+    } catch (error) {
+      console.error('Error minting seeds:', error)
+      setTxStatus('Error: ' + (error instanceof Error ? error.message : String(error)))
+      setTimeout(() => setTxStatus(''), 5000)
+    }
   }
 
   // Get effective grow time for a slot (accounting for speed boosts from contract)

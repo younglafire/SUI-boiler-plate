@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit'
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
+import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
 
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
 const CLOCK_OBJECT = '0x6'
@@ -42,9 +43,8 @@ interface MarketProps {
 export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSeeds = 0 }: MarketProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
+  const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
 
-  const [isLoading, setIsLoading] = useState(false)
   const [inventoryFruits, setInventoryFruits] = useState<InventoryFruit[]>([])
   const [selectedFruitType, setSelectedFruitType] = useState<number | null>(null)
   const [isMerchantModalOpen, setIsMerchantModalOpen] = useState(false)
@@ -55,7 +55,6 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
   useEffect(() => {
     async function fetchInventory() {
       if (!inventoryId) return
-      setIsLoading(true)
       try {
         const obj = await suiClient.getObject({
           id: inventoryId,
@@ -79,8 +78,6 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
         }
       } catch (err) {
         console.error("Failed to load inventory", err)
-      } finally {
-        setIsLoading(false)
       }
     }
     
@@ -124,7 +121,7 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
       signAndExecute(
         { transaction: tx },
         {
-          onSuccess: (result) => {
+          onSuccess: () => {
             setTxStatus('Merge Successful! 🌱')
             if (onUpdate) onUpdate()
             // Auto refresh via effect dep on txStatus

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useSignAndExecuteTransaction, useCurrentAccount } from '@mysten/dapp-kit'
-import { Transaction } from '@mysten/sui/transactions'
+import { useCurrentAccount } from '@mysten/dapp-kit'
 import Matter from 'matter-js'
+import { mintSeedsToUser, sponsorClient } from '../hooks/useSponsoredTransaction'
 
 // Fruit Assets
 import imgCherry from '../assets/fruit/Cherry.png'
@@ -85,7 +85,7 @@ interface FruitGameProps {
 
 export default function FruitGame({ onSeedsHarvested, onGameStateChange }: FruitGameProps) {
   const account = useCurrentAccount()
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
+  const [isPending, setIsPending] = useState(false)
   
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -183,7 +183,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     setDisplayNextFruit(next)
   }, [])
 
-  // Mint seeds on-chain
+  // Mint seeds on-chain - SPONSORED TRANSACTION (no wallet popup!)
   const mintSeedsOnChain = async () => {
     if (!account?.address) {
       setTxStatus('❌ Connect wallet first')
@@ -197,37 +197,36 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     }
     
     setTxStatus(`🌱 Minting ${seedsPending} seeds...`)
-    const tx = new Transaction()
+    setIsPending(true)
     
-    // Multiply by 10^9 for 9 decimals
-    const amountWithDecimals = BigInt(seedsPending) * SEED_DECIMALS
-    
-    tx.moveCall({
-      target: `${PACKAGE_ID}::player::mint_seeds`,
-      arguments: [
-        tx.object(SEED_ADMIN_CAP),
-        tx.pure.u64(amountWithDecimals),
-      ],
-    })
-
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async () => {
-          const minted = seedsPending
-          onSeedsHarvested?.(minted)
-          
-          setTxStatus(`🎉 Minted ${minted} seeds!`)
-          setSeedsPending(0)
-          setTimeout(() => setTxStatus(''), 3000)
-        },
-        onError: (error) => {
-          console.error('Error minting seeds:', error)
-          setTxStatus('Error: ' + error.message)
-          setTimeout(() => setTxStatus(''), 5000)
-        },
-      }
-    )
+    try {
+      // Multiply by 10^9 for 9 decimals
+      const amountWithDecimals = BigInt(seedsPending) * SEED_DECIMALS
+      
+      // Use sponsored transaction - NO WALLET POPUP!
+      const result = await mintSeedsToUser(
+        account.address,
+        amountWithDecimals,
+        PACKAGE_ID,
+        SEED_ADMIN_CAP
+      )
+      
+      // Wait for transaction to be confirmed
+      await sponsorClient.waitForTransaction({ digest: result.digest })
+      
+      const minted = seedsPending
+      onSeedsHarvested?.(minted)
+      
+      setTxStatus(`🎉 Minted ${minted} seeds!`)
+      setSeedsPending(0)
+      setTimeout(() => setTxStatus(''), 3000)
+    } catch (error) {
+      console.error('Error minting seeds:', error)
+      setTxStatus('Error: ' + (error instanceof Error ? error.message : String(error)))
+      setTimeout(() => setTxStatus(''), 5000)
+    } finally {
+      setIsPending(false)
+    }
   }
 
   // Lose game handler

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useSuiClient, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit'
+import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
+import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
 
 // Fruit Assets
 import imgCherry from '../assets/fruit/Cherry.png'
@@ -55,10 +56,10 @@ interface InventoryProps {
   playerSeeds?: number
 }
 
-export default function Inventory({ inventoryId, playerId, refreshTrigger, onUpdate, playerSeeds = 0 }: InventoryProps) {
+export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playerSeeds = 0 }: InventoryProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
+  const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
   const [fruits, setFruits] = useState<InventoryFruit[]>([])
   const [maxSlots, setMaxSlots] = useState(20)
   const [isLoading, setIsLoading] = useState(false)
