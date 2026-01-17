@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 module contract::utils {
+    use std::string;
     use sui::clock::Clock;
 
     // ============================================================================
@@ -306,19 +307,24 @@ module contract::utils {
         let (base_min, base_max) = get_fruit_weight_range(fruit_type);
         let base_range = base_max - base_min;
         
+        // Normalize seeds (seeds_planted comes with 9 decimals, so divide by SEED_DECIMALS)
+        // This converts 1_000_000_000 (1 SEED) to 1
+        let normalized_seeds = seeds_planted / SEED_DECIMALS;
+        // Cap the seed bonus at 10 seeds for balance
+        let capped_seeds = if (normalized_seeds > 10) { 10 } else { normalized_seeds };
+        
         // Base random weight within normal range
         let random_offset = (random_value % base_range);
         let base_weight = base_min + random_offset;
         
-        // Seeds can increase weight beyond normal range
-        // Each seed adds 1% chance to exceed normal weight
-        let seed_bonus = (seeds_planted * base_range) / 100;
+        // Seeds can increase weight beyond normal range (but capped)
+        // Each normalized seed adds up to 5% of base_range bonus
+        let seed_bonus = (capped_seeds * base_range) / 20;
         
-        // Additional random bonus (can go up to 3x the base range for legendary weights)
-        let extra_random = (random_value / 100) % (base_range * 3);
-        let bonus_weight = ((seed_bonus + extra_random) * random_value) / 10000;
+        // Small random bonus (0-20% of base_range for some variance)
+        let extra_random = (random_value / 100) % (base_range / 5 + 1);
         
-        base_weight + bonus_weight
+        base_weight + seed_bonus + extra_random
     }
 
     /// Calculate rarity based on weight relative to fruit type
@@ -419,5 +425,58 @@ module contract::utils {
         let grow_time = get_grow_time_by_rarity(rarity);
         let effective_grow_time = if (speed_boost_ms >= grow_time) { 1000 } else { grow_time - speed_boost_ms };
         current_time >= planted_at + effective_grow_time
+    }
+
+    // ============================================================================
+    // WALRUS BLOB IDS FOR FRUIT IMAGES
+    // ============================================================================
+    
+    // Walrus aggregator base URL
+    const WALRUS_AGGREGATOR_URL: vector<u8> = b"https://aggregator.walrus.site/v1/";
+    
+    // Blob IDs for each fruit type (stored on Walrus decentralized storage)
+    const APPLE_BLOB_ID: vector<u8> = b"readcJ34aWQRKUkiJlJVfF52d7LOGeR2OQFdl_QPmvA";
+    const GRAPE_BLOB_ID: vector<u8> = b"S_Mi3AcsnZztZw9bo1u7UrJATDu58KYivFUGCscw_Z0";
+    const LEMON_BLOB_ID: vector<u8> = b"KU9S7eN56I7BJ89ALkafb5ac2SzP5iSIds9znUvm2k0";
+    const ORANGE_BLOB_ID: vector<u8> = b"ECZwwwylg04TKBKeNy8KRy0PAAmLRJUNaUdZDAlbYX8";
+    const PEACH_BLOB_ID: vector<u8> = b"vQpwrGHC-MwoeyqjA2H4rNEYlgv9WEsX-EBzH5QURM8";
+    const PEAR_BLOB_ID: vector<u8> = b"yL5YIDTDeIdJrJo657xxQDRfAXk4hZIhCOYwfsWdYas";
+    const PINEAPPLE_BLOB_ID: vector<u8> = b"gL3dn3XOe73xfBXXGZTLd5o0CKq8LrmNqCdnBlLkXuY";
+    const WATERMELON_BLOB_ID: vector<u8> = b"rgvQ9a9dPyUdqflKQ9amcUUS89Nun-ZxhmFIjcOKw3s";
+    // Cherry and Melon use default (Apple for now - can be updated later)
+    const CHERRY_BLOB_ID: vector<u8> = b"readcJ34aWQRKUkiJlJVfF52d7LOGeR2OQFdl_QPmvA";
+    const MELON_BLOB_ID: vector<u8> = b"rgvQ9a9dPyUdqflKQ9amcUUS89Nun-ZxhmFIjcOKw3s";
+
+    /// Get fruit blob ID for Walrus storage
+    public(package) fun get_fruit_blob_id(fruit_type: u8): vector<u8> {
+        if (fruit_type == cherry()) {
+            CHERRY_BLOB_ID
+        } else if (fruit_type == grape()) {
+            GRAPE_BLOB_ID
+        } else if (fruit_type == orange()) {
+            ORANGE_BLOB_ID
+        } else if (fruit_type == lemon()) {
+            LEMON_BLOB_ID
+        } else if (fruit_type == apple()) {
+            APPLE_BLOB_ID
+        } else if (fruit_type == pear()) {
+            PEAR_BLOB_ID
+        } else if (fruit_type == peach()) {
+            PEACH_BLOB_ID
+        } else if (fruit_type == pineapple()) {
+            PINEAPPLE_BLOB_ID
+        } else if (fruit_type == melon()) {
+            MELON_BLOB_ID
+        } else {
+            WATERMELON_BLOB_ID
+        }
+    }
+
+    /// Generate full image URL from Walrus blob ID
+    public(package) fun get_fruit_image_url(fruit_type: u8): string::String {
+        let blob_id = get_fruit_blob_id(fruit_type);
+        let mut url = string::utf8(WALRUS_AGGREGATOR_URL);
+        url.append(string::utf8(blob_id));
+        url
     }
 }

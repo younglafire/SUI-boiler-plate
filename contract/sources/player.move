@@ -9,6 +9,7 @@
 module contract::player {
     use sui::clock::Clock;
     use sui::coin::Coin;
+    use std::string::String;
     use contract::utils;
     use contract::events;
     use contract::seed::{Self, SEED, SeedAdminCap};
@@ -34,6 +35,7 @@ module contract::player {
         fruit_type: u8,
         rarity: u8,
         weight: u64,
+        image_url: String,
         harvested_at: u64,
     }
 
@@ -141,6 +143,7 @@ module contract::player {
         fruit_type: u8,
         rarity: u8,
         weight: u64,
+        image_url: String,
         clock: &Clock,
     ) {
         assert!(
@@ -154,6 +157,7 @@ module contract::player {
             fruit_type,
             rarity,
             weight,
+            image_url,
             harvested_at: now,
         };
         
@@ -291,6 +295,10 @@ module contract::player {
 
     public fun get_fruit_weight(fruit: &InventoryFruit): u64 {
         fruit.weight
+    }
+
+    public fun get_fruit_image_url(fruit: &InventoryFruit): String {
+        fruit.image_url
     }
 
     public fun id(player: &PlayerAccount): ID {

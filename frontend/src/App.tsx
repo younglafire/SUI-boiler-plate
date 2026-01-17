@@ -26,7 +26,7 @@ import imgLemon from './assets/fruit/Chanh.png'
 import imgWatermelon from './assets/fruit/Dưa hấu.png'
 import imgSeed from './assets/Hạt 1.svg' // Using Hạt 1.svg for the seed icon
 
-const PACKAGE_ID = '0x0f183130337b219941e48e27a2bfeebafc88aed7c674ee165cbaa55ab2cc4583'
+const PACKAGE_ID = '0xbdc1103d1dd0ad0c12b2735b22bf299645ff554615241de386f7d381e116e4e8'
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`
 
 type GameTab = 'game' | 'land' | 'inventory' | 'market' | 'leaderboard'
@@ -205,6 +205,10 @@ function App() {
           <div className="main-content">
             <header className="top-bar">
               <div className="top-bar-right">
+                <div className="seed-balance-display">
+                  <img src={imgSeed} alt="SEED" className="seed-icon-small" />
+                  <span className="seed-amount">{playerSeeds.toLocaleString()}</span>
+                </div>
                 <ConnectButton />
               </div>
             </header>
@@ -222,7 +226,7 @@ function App() {
                     return <Leaderboard inventoryId={inventoryId} onUpdate={loadUserObjects} />
                   case 'inventory':
                   default:
-                    return <Inventory inventoryId={inventoryId} refreshTrigger={refreshTrigger} onUpdate={loadUserObjects} />
+                    return <Inventory inventoryId={inventoryId} refreshTrigger={refreshTrigger} onUpdate={loadUserObjects} playerSeeds={playerSeeds} />
                 }
               })()}
             </main>

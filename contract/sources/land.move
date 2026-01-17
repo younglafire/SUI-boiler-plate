@@ -15,6 +15,7 @@ module contract::land {
     use sui::random::{Random, new_generator};
     use sui::clock::Clock;
     use sui::coin::Coin;
+    use std::string::String;
     use contract::utils;
     use contract::events;
     use contract::seed::{Self, SEED, SeedAdminCap};
@@ -29,6 +30,7 @@ module contract::land {
         fruit_type: u8,
         rarity: u8,
         weight: u64,
+        image_url: String,
         seeds_used: u64,
         planted_at: u64,
         speed_boost_ms: u64,  // Total speed boost applied (in ms)
@@ -208,6 +210,7 @@ module contract::land {
         
         // Calculate rarity based on weight relative to fruit type
         let rarity = utils::calculate_weight_based_rarity(fruit_type, weight);
+        let image_url = utils::get_fruit_image_url(fruit_type);
         
         let now = sui::clock::timestamp_ms(clock);
         
@@ -215,6 +218,7 @@ module contract::land {
             fruit_type,
             rarity,
             weight,
+            image_url,
             seeds_used: seeds_to_use,
             planted_at: now,
             speed_boost_ms: 0,  // No speed boost initially
@@ -286,11 +290,13 @@ module contract::land {
                 
                 // Calculate rarity based on weight relative to fruit type
                 let rarity = utils::calculate_weight_based_rarity(fruit_type, weight);
-                
+                let image_url = utils::get_fruit_image_url(fruit_type);
+
                 let planted = PlantedFruit {
                     fruit_type,
                     rarity,
                     weight,
+                    image_url,
                     seeds_used: seeds_per_slot,
                     planted_at: now,
                     speed_boost_ms: 0,  // No speed boost initially
@@ -335,6 +341,7 @@ module contract::land {
                     let fruit_type = fruit.fruit_type;
                     let rarity = fruit.rarity;
                     let weight = fruit.weight;
+                    let image_url = fruit.image_url;
                     
                     // Add to inventory
                     player::add_fruit_to_inventory(
@@ -342,6 +349,7 @@ module contract::land {
                         fruit_type,
                         rarity,
                         weight,
+                        image_url,
                         clock
                     );
 
@@ -507,6 +515,10 @@ module contract::land {
 
     public fun get_fruit_weight(fruit: &PlantedFruit): u64 {
         fruit.weight
+    }
+
+    public fun get_fruit_image_url(fruit: &PlantedFruit): String {
+        fruit.image_url
     }
 
     public fun get_planted_at(fruit: &PlantedFruit): u64 {

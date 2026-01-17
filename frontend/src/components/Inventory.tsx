@@ -14,8 +14,8 @@ import imgPineapple from '../assets/fruit/Thơm.png'
 import imgMelon from '../assets/fruit/Dưa lưới.png'
 import imgWatermelon from '../assets/fruit/Dưa hấu.png'
 
-const PACKAGE_ID = '0x0f183130337b219941e48e27a2bfeebafc88aed7c674ee165cbaa55ab2cc4583'
-const SEED_ADMIN_CAP = '0xd964a632e79433b3a25137dc13bd556847fe9e116ff40e9c0dd7143473c557e1'
+const PACKAGE_ID = '0xbdc1103d1dd0ad0c12b2735b22bf299645ff554615241de386f7d381e116e4e8'
+const SEED_ADMIN_CAP = '0x2716812cb3eb670fca61278a827a3e4e963abde36c3b8740781a103be2137b6f'
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`
 const SEED_DECIMALS = 1_000_000_000n
 const INVENTORY_UPGRADE_BASE_COST = 200n // Base cost, increases with level
@@ -52,9 +52,10 @@ interface InventoryProps {
   playerId?: string | null
   refreshTrigger?: number
   onUpdate?: () => void
+  playerSeeds?: number
 }
 
-export default function Inventory({ inventoryId, playerId, refreshTrigger, onUpdate }: InventoryProps) {
+export default function Inventory({ inventoryId, playerId, refreshTrigger, onUpdate, playerSeeds = 0 }: InventoryProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction()
@@ -150,6 +151,14 @@ export default function Inventory({ inventoryId, playerId, refreshTrigger, onUpd
       setTxStatus('❌ Missing account or inventory')
       return
     }
+
+    // Pre-check seed balance
+    const neededSeeds = Number(calculateUpgradeCost(maxSlots))
+    if (playerSeeds < neededSeeds) {
+      setTxStatus(`❌ Not enough seeds! Need ${neededSeeds} SEED`)
+      setTimeout(() => setTxStatus(''), 3000)
+      return
+    }
     
     // Find player account
     const objects = await suiClient.getOwnedObjects({
@@ -240,7 +249,7 @@ export default function Inventory({ inventoryId, playerId, refreshTrigger, onUpd
             <button 
               className="upgrade-btn" 
               onClick={upgradeInventory}
-              disabled={isPending}
+              disabled={isPending || playerSeeds < Number(nextUpgradeCost)}
             >
               ⬆️ Upgrade (+{INVENTORY_SLOTS_PER_UPGRADE} slots, {nextUpgradeCost.toString()} SEED)
             </button>

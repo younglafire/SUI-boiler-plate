@@ -165,6 +165,31 @@
   box-shadow: none !important;
 }
 
+/* Seed balance display in top bar */
+.seed-balance-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 0 #1e8449;
+  margin-right: 12px;
+}
+
+.seed-icon-small {
+  width: 24px;
+  height: 24px;
+}
+
+.seed-amount {
+  font-weight: 900;
+  color: white;
+  font-size: 1.1rem;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
 .total-harvested {
   background: #f1c40f;
   border: 3px solid #fff;

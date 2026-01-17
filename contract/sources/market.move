@@ -64,6 +64,7 @@ module contract::market {
             // 4. Calculate rarity based on the new weight for this fruit type
             // Heavier = rarer, since normal fruits are much lighter
             let new_rarity = utils::calculate_weight_based_rarity(fruit_type, new_weight);
+            let image_url = utils::get_fruit_image_url(fruit_type);
             
             // 5. Add the merged fruit back to inventory (SAME fruit type)
             player::add_fruit_to_inventory(
@@ -71,6 +72,7 @@ module contract::market {
                 fruit_type,  // Same fruit type, not upgraded
                 new_rarity,
                 new_weight,
+                image_url,
                 clock
             );
 

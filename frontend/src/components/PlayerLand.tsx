@@ -19,7 +19,7 @@ import imgPineapple from '../assets/fruit/Thơm.png'
 import imgMelon from '../assets/fruit/Dưa lưới.png'
 import imgWatermelon from '../assets/fruit/Dưa hấu.png'
 
-const PACKAGE_ID = '0x0f183130337b219941e48e27a2bfeebafc88aed7c674ee165cbaa55ab2cc4583'
+const PACKAGE_ID = '0xbdc1103d1dd0ad0c12b2735b22bf299645ff554615241de386f7d381e116e4e8'
 const RANDOM_OBJECT = '0x8'
 const CLOCK_OBJECT = '0x6'
 
@@ -49,7 +49,7 @@ const formatTimeLeft = (seconds: number): string => {
 }
 
 // SeedAdminCap shared object ID (from contract publish)
-const SEED_ADMIN_CAP = '0xd964a632e79433b3a25137dc13bd556847fe9e116ff40e9c0dd7143473c557e1'
+const SEED_ADMIN_CAP = '0x2716812cb3eb670fca61278a827a3e4e963abde36c3b8740781a103be2137b6f'
 
 // SEED coin type and decimals
 const SEED_COIN_TYPE = `${PACKAGE_ID}::seed::SEED`
@@ -139,6 +139,8 @@ export default function PlayerLand({
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [batchSeeds, setBatchSeeds] = useState(1)
   const [showHarvestWarning, setShowHarvestWarning] = useState(false)
+  const [showPlantAllLandsModal, setShowPlantAllLandsModal] = useState(false)
+  const [allLandsSeedsPerSlot, setAllLandsSeedsPerSlot] = useState(1)
   
   // Tool usage state
   const [selectedTool, setSelectedTool] = useState<ShopItemKey | null>(null)
@@ -694,39 +696,6 @@ export default function PlayerLand({
     )
   }
 
-  // Mint test seeds (for testing/hackathon)
-  const mintTestSeeds = async () => {
-    setTxStatus('🌱 Minting 1000 test seeds...')
-    const tx = new Transaction()
-    
-    // Multiply by 10^9 for 9 decimals
-    const amountWithDecimals = 1000n * seedScale
-    
-    tx.moveCall({
-      target: `${PACKAGE_ID}::player::mint_seeds`,
-      arguments: [
-        tx.object(SEED_ADMIN_CAP),
-        tx.pure.u64(amountWithDecimals),
-      ],
-    })
-
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          await suiClient.waitForTransaction({ digest: result.digest })
-          if (onDataChanged) await onDataChanged()
-          setTxStatus('🎉 Got 1000 seeds!')
-          setTimeout(() => setTxStatus(''), 2000)
-        },
-        onError: (error) => {
-          console.error('Error minting seeds:', error)
-          setTxStatus('Error: ' + error.message)
-        },
-      }
-    )
-  }
-
   // Get effective grow time for a slot (accounting for speed boosts from contract)
   const getEffectiveGrowTime = (slot: Slot): number => {
     if (!slot.fruit) return 0
@@ -1104,22 +1073,7 @@ export default function PlayerLand({
         </div>
       )}
 
-      {/* Seeds Overview */}
-      <div className="seeds-section">
-        <div className="seeds-display">
-          <h4>🌱 Your Seeds: {playerSeeds}</h4>
-          {account && (
-            <button 
-              onClick={mintTestSeeds} 
-              disabled={isPending}
-              className="mint-test-btn"
-              title="Mint 100 test seeds"
-            >
-              {isPending ? '⏳' : '+ Mint Test Seeds'}
-            </button>
-          )}
-        </div>
-      </div>
+
 
       {/* No Land */}
       {!activeLandId && account && (
@@ -1199,28 +1153,36 @@ export default function PlayerLand({
                     setTimeout(() => setTxStatus(''), 3000)
                     return
                   }
-                  setBatchSeeds(1)
-                  plantAllLands()
+                  setAllLandsSeedsPerSlot(1)
+                  setShowPlantAllLandsModal(true)
                 }}
                 disabled={isPending}
                 className="plant-all-lands-btn"
               >
-                🌍 Plant All Lands ({allLands.length})
+                🌍 Plant All Lands ({allLands.length} lands, ~{allLands.length * 6} slots)
               </button>
             )}
             <button 
               onClick={upgradeLand} 
-              disabled={isPending || !account}
-              title="Costs seeds to upgrade"
+              disabled={
+                isPending ||
+                !account ||
+                playerSeeds < (Number(LAND_UPGRADE_BASE_COST) * (1 << landLevel))
+              }
+              title={`Costs ${Number(LAND_UPGRADE_BASE_COST) * (1 << landLevel)} SEED to upgrade`}
             >
-              ⬆️ Upgrade Land (costs seeds)
+              ⬆️ Upgrade Land — {Number(LAND_UPGRADE_BASE_COST) * (1 << landLevel)} SEED
             </button>
             <button 
               onClick={buyNewLand} 
-              disabled={isPending || !account}
-              title="Costs seeds to buy new land"
+              disabled={
+                isPending ||
+                !account ||
+                playerSeeds < Number(NEW_LAND_COST)
+              }
+              title={`Costs ${Number(NEW_LAND_COST)} SEED to buy new land`}
             >
-              🏡 Buy New Land (costs seeds)
+              🏡 Buy New Land — {Number(NEW_LAND_COST)} SEED
             </button>
           </div>
 
@@ -1399,6 +1361,46 @@ export default function PlayerLand({
                 }}
               >
                 Harvest Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plant All Lands Modal */}
+      {showPlantAllLandsModal && (
+        <div className="modal-overlay" onClick={() => setShowPlantAllLandsModal(false)}>
+          <div className="modal plant-modal" onClick={e => e.stopPropagation()}>
+            <h3>🌍 Plant All Lands</h3>
+            <p>
+              You have <strong>{allLands.length}</strong> lands with approximately <strong>{allLands.length * 6}</strong> empty slots total.
+            </p>
+            <div className="plant-input-section">
+              <label>🌱 Seeds per slot:</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={allLandsSeedsPerSlot}
+                onChange={e => setAllLandsSeedsPerSlot(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <div className="cost-preview">
+              <p>💰 Estimated cost: <strong>{allLandsSeedsPerSlot * allLands.length * 6}</strong> SEED</p>
+              <p className="balance-info">Your balance: <strong>{playerSeeds}</strong> SEED</p>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowPlantAllLandsModal(false)}>Cancel</button>
+              <button 
+                className="btn-primary"
+                disabled={isPending || playerSeeds < allLandsSeedsPerSlot * allLands.length * 6}
+                onClick={() => {
+                  setShowPlantAllLandsModal(false)
+                  setBatchSeeds(allLandsSeedsPerSlot)
+                  plantAllLands()
+                }}
+              >
+                {isPending ? '⏳ Planting...' : '🌱 Plant All'}
               </button>
             </div>
           </div>
