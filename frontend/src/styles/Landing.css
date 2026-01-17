@@ -14,9 +14,53 @@
   position: relative;
   font-family: 'Fredoka', sans-serif; /* Rounded, cute font */
   
-/* VIBRANT SUNSET WATERY SKY */
+/* VIBRANT SUNSET WATERY SKY (Default) */
   background: linear-gradient(180deg, #ff5e62 0%, #ff9966 50%, #feb47b 100%);
   overflow: hidden;
+  transition: background 1s ease; /* Smooth transition between Day/Night */
+}
+
+/* DARK MODE SKY (Night) */
+.landing-page.dark-mode {
+  background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+}
+
+/* ROPE SWITCH (Dây kéo) */
+.rope-container {
+  position: absolute;
+  top: -20px;
+  right: 50px;
+  z-index: 100;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.rope-container:active {
+  transform: translateY(20px); /* Pull effect */
+}
+
+.rope {
+  width: 4px;
+  height: 100px;
+  background: #5d4037;
+  border-radius: 4px;
+}
+
+.knob {
+  width: 50px;
+  height: 50px;
+  background: #fff;
+  border: 4px solid #5d4037;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  margin-top: -5px;
 }
 
 /* SKY ELEMENTS (Sunset Sun & Clouds) */
@@ -30,6 +74,7 @@
   z-index: 0;
 }
 
+/* SUN -> MOON TRANSITION */
 .sun {
   position: absolute;
   top: 100px;
@@ -40,11 +85,70 @@
   border-radius: 50%;
   box-shadow: 0 0 60px #ff5722, 0 0 120px rgba(255, 87, 34, 0.5);
   animation: sunGlow 4s infinite alternate;
+  transition: all 1s ease; /* Smooth morph */
+}
+
+.landing-page.dark-mode .sun {
+  background: #fdfbf7; /* Moon White */
+  box-shadow: 0 0 40px #ffffff, 0 0 80px rgba(255, 255, 255, 0.3);
+  /* Optional: Add craters or keep it simple glowing orb */
 }
 
 @keyframes sunGlow {
-  from { box-shadow: 0 0 60px #ff5722, 0 0 120px rgba(255, 87, 34, 0.5); transform: scale(1); }
-  to { box-shadow: 0 0 90px #ff5722, 0 0 160px rgba(255, 87, 34, 0.7); transform: scale(1.05); }
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
+/* STARS (Visible only in Dark Mode) */
+.stars-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.landing-page.dark-mode .stars-container {
+  opacity: 1;
+}
+
+.star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  width: 4px;
+  height: 4px;
+  box-shadow: 0 0 10px #fff;
+  animation: twinkle 3s infinite ease-in-out;
+}
+
+.s1 { top: 15%; left: 10%; width: 6px; height: 6px; animation-delay: 0s; }
+.s2 { top: 25%; left: 85%; animation-delay: 1s; }
+.s3 { top: 10%; left: 60%; width: 5px; height: 5px; animation-delay: 2s; }
+.s4 { top: 40%; left: 15%; animation-delay: 0.5s; }
+.s5 { top: 30%; left: 50%; animation-delay: 1.5s; }
+.s6 { top: 20%; left: 30%; width: 7px; height: 7px; animation-delay: 2.5s; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* HILLS DARK MODE */
+.landing-page.dark-mode .hill-back {
+  background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
+  opacity: 0.6;
+}
+
+.landing-page.dark-mode .hill-front {
+  background: linear-gradient(180deg, #388e3c 0%, #2e7d32 100%);
+  filter: brightness(0.7);
+}
+
+/* CLOUDS DARK MODE */
+.landing-page.dark-mode .cloud {
+  opacity: 0.2; /* Faint clouds at night */
+  filter: none;
 }
 
 .cloud {
@@ -53,6 +157,7 @@
   border-radius: 100px;
   opacity: 0.8;
   filter: sepia(0.3) hue-rotate(-20deg); /* Give clouds a sunset tint */
+  transition: opacity 1s ease, filter 1s ease;
 }
 
 /* CSS Cloud Shape using Pseudo-elements */
@@ -79,20 +184,20 @@
 .c1 {
   width: 120px; height: 40px;
   top: 15%; left: -20%;
-  animation: floatCloud 60s infinite linear;
+  animation: floatCloud 60s infinite linear -10s; /* Negative delay: starts 10s into animation */
 }
 
 .c2 {
   width: 100px; height: 35px;
   top: 25%; left: -20%;
-  animation: floatCloud 45s infinite linear 15s;
+  animation: floatCloud 45s infinite linear -35s; /* Starts way inside the screen */
   opacity: 0.6;
 }
 
 .c3 {
   width: 140px; height: 45px;
   top: 10%; left: -20%;
-  animation: floatCloud 70s infinite linear 5s;
+  animation: floatCloud 70s infinite linear -25s; /* Starts mid-screen */
 }
 
 @keyframes floatCloud {

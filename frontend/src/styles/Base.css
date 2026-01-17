@@ -75,6 +75,13 @@ body {
   pointer-events: none;
   z-index: 15; /* Above Hills (1), Above Cloud/Sun (0), Below Content (20) */
   overflow: hidden;
+  /* Soft entrance to hide loading snap */
+  opacity: 0; 
+  animation: simpleFadeIn 1.5s ease-out forwards;
+}
+
+@keyframes simpleFadeIn {
+  to { opacity: 1; }
 }
 
 .fruit-float {
@@ -83,6 +90,7 @@ body {
   filter: drop-shadow(0 10px 15px rgba(0,0,0,0.15)); /* Sharper shadow */
   width: 60px;
   height: auto;
+  will-change: transform; /* Hint browser to use GPU for smoother animation */
 }
 
 @keyframes floatUp {

@@ -53,6 +53,9 @@ function App() {
   const [isGameActive, setIsGameActive] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [pendingTab, setPendingTab] = useState<GameTab | null>(null)
+  
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   const loadUserObjects = useCallback(async () => {
     if (!account?.address) {
@@ -140,10 +143,28 @@ function App() {
     <div className="app">
       {!account ? (
         /* 2. TRANG CHÀO MỪNG (Khi chưa Connect) */
-        <div className="landing-page">
+        <div className={`landing-page ${isDarkMode ? 'dark-mode' : ''}`}>
+          
+          {/* THEME SWITCH ROPE (Dây kéo rèm) */}
+          <div className="rope-container" onClick={() => setIsDarkMode(!isDarkMode)}>
+            <div className="rope"></div>
+            <div className="knob">
+              {isDarkMode ? '🌙' : '☀️'}
+            </div>
+          </div>
+
           {/* Sky Elements */}
           <div className="sky-container">
             <div className="sun"></div>
+            {/* Stars for Dark Mode */}
+            <div className="stars-container">
+              <div className="star s1"></div>
+              <div className="star s2"></div>
+              <div className="star s3"></div>
+              <div className="star s4"></div>
+              <div className="star s5"></div>
+              <div className="star s6"></div>
+            </div>
             <div className="cloud c1"></div>
             <div className="cloud c2"></div>
             <div className="cloud c3"></div>
