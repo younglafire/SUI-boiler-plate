@@ -12,6 +12,11 @@ import NFTCollection from './components/NFTCollection'
 // Import Logo mới
 import logoDoc from './assets/Logo dọc.svg'
 
+// Import Menu Icons
+import iconGame from './assets/menu-btn/game.png'
+import iconFarm from './assets/menu-btn/farm.png'
+import iconBags from './assets/menu-btn/bags.png'
+
 // Import bộ 9 file CSS Modular (Đảm bảo ní đã tạo các file này trong thư mục styles)
 import './styles/Base.css'
 import './styles/Layout.css'
@@ -240,13 +245,13 @@ function App() {
             
             <nav className="sidebar-nav">
               <button className={activeTab === 'game' ? 'active' : ''} onClick={() => handleTabChange('game')}>
-                <span className="icon">🎮</span><span className="label">GAME</span>
+                <img src={iconGame} alt="Game" className="menu-icon-img" /><span className="label">GAME</span>
               </button>
               <button className={activeTab === 'land' ? 'active' : ''} onClick={() => handleTabChange('land')}>
-                <span className="icon">🌍</span><span className="label">FARM</span>
+                <img src={iconFarm} alt="Farm" className="menu-icon-img" /><span className="label">FARM</span>
               </button>
               <button className={activeTab === 'inventory' ? 'active' : ''} onClick={() => handleTabChange('inventory')}>
-                <span className="icon">🎒</span><span className="label">BAGS</span>
+                <img src={iconBags} alt="Bags" className="menu-icon-img" /><span className="label">BAGS</span>
               </button>
               <button className={activeTab === 'collection' ? 'active' : ''} onClick={() => handleTabChange('collection')}>
                 <span className="icon">💎</span><span className="label">NFTs</span>

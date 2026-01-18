@@ -47,29 +47,54 @@
 }
 
 .sidebar-header {
-  padding: 1.5rem 1rem;
+  padding: 1rem 0.5rem; /* Giảm padding header */
   border-bottom: 4px solid rgba(0, 0, 0, 0.2);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
 }
 
 .game-logo-main {
-  width: 180px; /* Kích thước Logo vừa vặn với không gian cũ */
+  width: 150px; /* Thu nhỏ Logo còn 150px */
   height: auto;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 1.5rem 1rem;
+  padding: 0 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* Khôi phục khoảng cách rộng rãi */
+  justify-content: space-evenly; /* Chia đều tất cả khoảng cách bằng nhau */
+  /* gap: 0.5rem;  <- Bỏ gap đi để space-evenly tự tính toán */
   overflow-y: auto;
   min-height: 0;
+}
+
+.sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem; /* Giảm nhẹ padding nút */
+  border: 3px solid transparent;
+  background: transparent;
+  color: #ecf0f1;
+  font-size: 0.95rem; 
+  font-weight: 800;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.menu-icon-img {
+  width: 26px; /* Icon nhỏ lại xíu cho cân đối */
+  height: 26px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .sidebar-nav button:hover {
@@ -91,7 +116,7 @@
 }
 
 .sidebar-footer {
-  padding: 1.5rem 1rem;
+  padding: 1rem 0.5rem; /* Giảm padding footer */
   border-top: 4px solid rgba(0, 0, 0, 0.2);
   background: rgba(0, 0, 0, 0.2);
   flex-shrink: 0;

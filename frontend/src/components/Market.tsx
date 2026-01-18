@@ -3,6 +3,9 @@ import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
 
+const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
+const CLOCK_OBJECT = '0x6'
+
 // Fruit Assets
 import imgCherry from '../assets/fruit/Cherry.png'
 import imgGrape from '../assets/fruit/Nho.png'
@@ -15,8 +18,8 @@ import imgPineapple from '../assets/fruit/Thơm.png'
 import imgMelon from '../assets/fruit/Dưa lưới.png'
 import imgWatermelon from '../assets/fruit/Dưa hấu.png'
 
-const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
-const CLOCK_OBJECT = '0x6'
+// Import Merge Man
+import mergeMan from '../assets/MERGE-MAN.png'
 
 // Updated FRUITS with images
 const FRUITS = [
@@ -127,9 +130,11 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
       {txStatus && <div className="tx-status-overlay">{txStatus}</div>}
       <div className="merge-layout">
         <div className="merchant-column">
-          <div className="merchant-card">
-            <div className="merchant-avatar-placeholder">👤</div>
-            <div className="merchant-bubble"><p>Only the strongest fruits can become <strong>LEGENDARY</strong>.</p><small>Bring me 10 of a kind!</small></div>
+          <div className="merchant-wrapper">
+            <div className="speech-bubble">
+              Bring me <strong>10 identical fruits</strong><br/>and I'll forge a <strong>LEGENDARY</strong> one!
+            </div>
+            <img src={mergeMan} alt="Merge Man" className="merge-man-img" />
           </div>
         </div>
         <div className="merge-list-column">
@@ -195,11 +200,60 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
       )}
       <style>{`
         .merge-container { max-width: 1000px; margin: 0 auto; padding: 20px; color: white; }
-        .merge-layout { display: flex; gap: 40px; min-height: 500px; }
-        .merchant-column { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .merchant-card { background: rgba(255, 255, 255, 0.05); border: 4px solid #2c3e50; border-radius: 24px; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); }
-        .merchant-avatar-placeholder { width: 100px; height: 100px; background: #34495e; border-radius: 50%; font-size: 50px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 4px solid #fff; }
-        .merchant-bubble { background: #fff; color: #2c3e50; padding: 15px; border-radius: 16px; position: relative; font-weight: 700; }
+        .merge-layout { display: flex; gap: 60px; min-height: 500px; align-items: flex-end; }
+        
+        .merchant-column { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+        .merchant-wrapper { position: relative; width: 100%; max-width: 350px; display: flex; justify-content: center; }
+        
+        .merge-man-img { 
+          width: 100%; 
+          height: auto; 
+          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));
+        }
+
+        .speech-bubble {
+          position: absolute;
+          top: -80px;
+          right: -40px;
+          background: #fff;
+          color: #2c3e50;
+          padding: 15px 20px;
+          border-radius: 20px;
+          border: 4px solid #2c3e50;
+          font-weight: 700;
+          font-size: 0.95rem;
+          line-height: 1.4;
+          box-shadow: 8px 8px 0 rgba(0,0,0,0.2);
+          z-index: 10;
+          width: 220px;
+          text-align: center;
+        }
+
+        .speech-bubble::after {
+          content: '';
+          position: absolute;
+          bottom: -15px;
+          left: 30px;
+          border-width: 15px 15px 0;
+          border-style: solid;
+          border-color: #2c3e50 transparent;
+          display: block;
+          width: 0;
+        }
+        
+        .speech-bubble::before {
+          content: '';
+          position: absolute;
+          bottom: -9px;
+          left: 34px;
+          border-width: 11px 11px 0;
+          border-style: solid;
+          border-color: #fff transparent;
+          display: block;
+          width: 0;
+          z-index: 1;
+        }
+
         .merge-list-column { flex: 2; background: rgba(0, 0, 0, 0.2); border-radius: 24px; padding: 20px; border: 4px solid #2c3e50; }
         .section-title { font-size: 1.5rem; text-transform: uppercase; margin-bottom: 20px; color: #f1c40f; text-shadow: 2px 2px 0 #000; }
         .merge-grid { display: grid; gap: 15px; }
@@ -220,6 +274,47 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
         .res-pill { padding: 4px 12px; border-radius: 12px; font-weight: bold; color: white; margin-top: 5px; display: inline-block; }
         .res-pill.weight { background: #e67e22; }
         .tx-status-overlay { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #000; color: #f1c40f; padding: 10px 25px; border-radius: 30px; border: 2px solid #f1c40f; font-weight: bold; z-index: 1100; }
+
+        @media (max-width: 768px) { 
+          .merge-layout { 
+            flex-direction: column; 
+            gap: 20px;
+          } 
+          .merchant-column { 
+            display: none; 
+          } 
+          .merge-list-column { 
+            width: 100%; 
+            padding: 10px; /* Giảm padding */
+            border: 2px solid #2c3e50; 
+            box-sizing: border-box;
+          }
+          .merge-card {
+            padding: 10px; /* Thu nhỏ card */
+            gap: 10px;
+            box-sizing: border-box;
+          }
+          .merge-info {
+            gap: 10px;
+            flex: 1;
+            min-width: 0; /* Cho phép text co lại */
+          }
+          .fruit-preview {
+            width: 50px;
+            height: 50px;
+            flex-shrink: 0;
+          }
+          .merge-details h3 {
+            font-size: 0.9rem;
+          }
+          .merge-details p {
+            font-size: 0.7rem;
+          }
+          .merge-btn {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+          }
+        }
       `}</style>
     </div>
   )
