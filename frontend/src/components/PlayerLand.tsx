@@ -797,6 +797,135 @@ export default function PlayerLand({
       )}
 
       <style>{`
+        /* --- CARTOON MODAL STYLE --- */
+        .modal-overlay {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0,0,0,0.8);
+          backdrop-filter: blur(5px);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999; /* Siêu cao để luôn trên cùng */
+        }
+
+        .modal {
+          position: fixed; /* Ép cố định */
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) scale(1); /* Căn giữa tuyệt đối */
+          background: #fff9e3;
+          border: 6px solid #2c3e50;
+          border-radius: 32px;
+          padding: 30px;
+          width: 90%;
+          max-width: 450px;
+          text-align: center;
+          color: #2c3e50;
+          box-shadow: 12px 12px 0 rgba(0,0,0,0.3);
+          z-index: 10000;
+          animation: popInCenter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popInCenter {
+          from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+          to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .modal h3 {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #e67e22;
+          text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+          margin-top: 0;
+          text-transform: uppercase;
+        }
+
+        .modal p {
+          font-weight: 700;
+          font-size: 1rem;
+          margin-bottom: 15px;
+        }
+
+        .rarity-info-box {
+          background: #ecf0f1 !important;
+          border: 3px dashed #bdc3c7;
+          border-radius: 16px !important;
+          padding: 15px !important;
+          margin-bottom: 20px !important;
+          text-align: left;
+        }
+
+        .rarity-info-box small {
+          font-size: 0.9rem;
+          display: block;
+          line-height: 1.6;
+          font-weight: 600;
+        }
+
+        .modal-input {
+          margin: 20px 0;
+        }
+
+        .modal-input input {
+          width: 100%;
+          padding: 12px;
+          border: 4px solid #2c3e50;
+          border-radius: 16px;
+          font-size: 1.2rem;
+          font-weight: 900;
+          text-align: center;
+          background: #fff;
+          color: #2c3e50;
+          box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 15px;
+          justify-content: center;
+          margin-top: 20px;
+        }
+
+        .modal-actions button {
+          flex: 1;
+          padding: 12px 20px;
+          border-radius: 16px;
+          border: 3px solid #fff;
+          font-weight: 900;
+          font-size: 1rem;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.1s;
+        }
+
+        .modal-actions button:first-child {
+          background: #bdc3c7;
+          box-shadow: 0 5px 0 #7f8c8d;
+          color: #2c3e50;
+        }
+
+        .modal-actions button:last-child {
+          background: #2ecc71;
+          box-shadow: 0 5px 0 #27ae60;
+          color: white;
+        }
+
+        .modal-actions button:active {
+          transform: translateY(4px);
+          box-shadow: none;
+        }
+
+        .modal-total {
+          font-weight: 900;
+          color: #2c3e50;
+          background: rgba(0,0,0,0.05);
+          padding: 10px;
+          border-radius: 12px;
+        }
+
         .mint-test-btn {
           background: linear-gradient(135deg, #f1c40f, #e67e22);
           border: 2px solid #fff;

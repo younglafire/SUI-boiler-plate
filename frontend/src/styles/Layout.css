@@ -11,17 +11,17 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  /* overflow-y: auto;  <- Bỏ overflow ở đây, để body cuộn tự nhiên hoặc xử lý ở content-area */
   /* Tăng độ đậm lớp phủ lên 0.5 để chữ trắng nổi bật trên nền xanh */
   background: rgba(0, 20, 0, 0.5);
-  backdrop-filter: blur(4px);
+  /* backdrop-filter: blur(4px); <- XÓA DÒNG NÀY ĐỂ FIX MODAL TRÔI */
   position: relative; 
 }
 
 .content-area {
   flex: 1;
   padding: 2rem;
-  overflow-y: auto;
+  /* overflow-y: auto; <- Đảm bảo vùng này cuộn độc lập nếu cần */
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;

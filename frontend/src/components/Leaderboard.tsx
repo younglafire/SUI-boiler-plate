@@ -3,988 +3,399 @@ import { useSuiClient, useCurrentAccount, useSignAndExecuteTransaction } from '@
 import { Transaction } from '@mysten/sui/transactions'
 import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
 
+// Fruit Assets
+import imgCherry from '../assets/fruit/Cherry.png'
+import imgGrape from '../assets/fruit/Nho.png'
+import imgOrange from '../assets/fruit/Cam.png'
+import imgLemon from '../assets/fruit/Chanh.png'
+import imgApple from '../assets/fruit/Táo.png'
+import imgPear from '../assets/fruit/Lê.png'
+import imgPeach from '../assets/fruit/Đào.png'
+import imgPineapple from '../assets/fruit/Thơm.png'
+import imgMelon from '../assets/fruit/Dưa lưới.png'
+import imgWatermelon from '../assets/fruit/Dưa hấu.png'
+
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
 const LEADERBOARD_CONFIG_ID = '0xba8c7f6735c3f7d221c056a102be5afa413d444b4c296fb7db4a9f001397943c'
-const JOIN_FEE_MIST = 10_000_000 // 0.01 SUI in MIST
-const SUI_DECIMALS = 1_000_000_000 // 1 SUI = 10^9 MIST
+const JOIN_FEE_MIST = 10_000_000 
+const SUI_DECIMALS = 1_000_000_000
 const LEADERBOARD_ROUND_TYPE = `${PACKAGE_ID}::leaderboard::LeaderboardRound`
 
-// Prize distribution percentages
-const PRIZE_FIRST_PCT = 50
-const PRIZE_SECOND_PCT = 25
-const PRIZE_THIRD_PCT = 10
-
 const FRUITS = [
-  { level: 1, emoji: '🍒', name: 'Cherry' },
-  { level: 2, emoji: '🍇', name: 'Grape' },
-  { level: 3, emoji: '🍊', name: 'Orange' },
-  { level: 4, emoji: '🍋', name: 'Lemon' },
-  { level: 5, emoji: '🍎', name: 'Apple' },
-  { level: 6, emoji: '🍐', name: 'Pear' },
-  { level: 7, emoji: '🍑', name: 'Peach' },
-  { level: 8, emoji: '🍍', name: 'Pineapple' },
-  { level: 9, emoji: '🍈', name: 'Melon' },
-  { level: 10, emoji: '🍉', name: 'Watermelon' },
+  { level: 1, image: imgCherry, name: 'Cherry' },
+  { level: 2, image: imgGrape, name: 'Grape' },
+  { level: 3, image: imgOrange, name: 'Orange' },
+  { level: 4, image: imgLemon, name: 'Lemon' },
+  { level: 5, image: imgApple, name: 'Apple' },
+  { level: 6, image: imgPear, name: 'Pear' },
+  { level: 7, image: imgPeach, name: 'Peach' },
+  { level: 8, image: imgPineapple, name: 'Pineapple' },
+  { level: 9, image: imgMelon, name: 'Melon' },
+  { level: 10, image: imgWatermelon, name: 'Watermelon' },
 ]
 
-interface LeaderboardEntry {
-  player: string
-  best_weight: number
-  last_updated: number
-  joined_at: number
-}
-
+interface LeaderboardEntry { player: string; best_weight: number; last_updated: number; joined_at: number }
 interface LeaderboardRound {
-  objectId: string
-  roundId: number
-  fruitType: number
-  startTime: number
-  endTime: number
-  participantCount: number
-  isActive: boolean
-  prizePool: number
-  prizesDistributed: boolean
-  firstPlace: string
-  firstWeight: number
-  secondPlace: string
-  secondWeight: number
-  thirdPlace: string
-  thirdWeight: number
+  objectId: string; roundId: number; fruitType: number; startTime: number; endTime: number; participantCount: number;
+  isActive: boolean; prizePool: number; prizesDistributed: boolean; firstPlace: string; firstWeight: number;
+  secondPlace: string; secondWeight: number; thirdPlace: string; thirdWeight: number;
 }
 
-interface LeaderboardProps {
-  inventoryId: string | null
-  onUpdate?: () => void
-}
+interface LeaderboardProps { inventoryId: string | null; onUpdate?: () => void }
 
 export default function Leaderboard({ inventoryId, onUpdate }: LeaderboardProps) {
-  const account = useCurrentAccount()
-  const suiClient = useSuiClient()
-  // Keep useSignAndExecuteTransaction for joinLeaderboard (requires SUI payment)
+  const account = useCurrentAccount(); const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending: isJoinPending } = useSignAndExecuteTransaction()
-  // Use sponsored transaction for other operations
   const { mutate: signAndExecuteSponsored, isPending: isSponsoredPending } = useSponsoredTransaction()
   const isPending = isJoinPending || isSponsoredPending
   
   const [currentRound, setCurrentRound] = useState<LeaderboardRound | null>(null)
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [txStatus, setTxStatus] = useState('')
-  const [timeRemaining, setTimeRemaining] = useState<string>('')
-  const [isAutoStarting, setIsAutoStarting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true); const [txStatus, setTxStatus] = useState('')
+  const [timeRemaining, setTimeRemaining] = useState<string>(''); const [isAutoStarting, setIsAutoStarting] = useState(false)
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Auto-discover the latest LeaderboardRound by querying RoundCreated events
   const findLatestRound = useCallback(async (): Promise<string | null> => {
     try {
-      const events = await suiClient.queryEvents({
-        query: {
-          MoveEventType: `${PACKAGE_ID}::leaderboard::RoundCreated`
-        },
-        limit: 5,
-        order: 'descending'
-      })
-
-      if (events.data.length === 0) {
-        console.log('No RoundCreated events found')
-        return null
-      }
-
-      // Get the transaction that created the latest round
-      const latestEvent = events.data[0]
-      const txDigest = latestEvent.id.txDigest
-      
-      // Get transaction details to find the created round object
-      const txDetails = await suiClient.getTransactionBlock({
-        digest: txDigest,
-        options: { showObjectChanges: true }
-      })
-
-      // Find the LeaderboardRound object that was created
-      const createdRound = txDetails.objectChanges?.find(
-        (change: any) => change.type === 'created' && change.objectType === LEADERBOARD_ROUND_TYPE
-      )
-
-      if (createdRound && 'objectId' in createdRound) {
-        console.log('Found latest round:', createdRound.objectId)
-        return createdRound.objectId
-      }
-
-      return null
-    } catch (err) {
-      console.error('Error finding latest round:', err)
-      return null
-    }
+      const events = await suiClient.queryEvents({ query: { MoveEventType: `${PACKAGE_ID}::leaderboard::RoundCreated` }, limit: 1, order: 'descending' })
+      if (events.data.length === 0) return null
+      const txDetails = await suiClient.getTransactionBlock({ digest: events.data[0].id.txDigest, options: { showObjectChanges: true } })
+      const createdRound = txDetails.objectChanges?.find((c: any) => c.type === 'created' && c.objectType === LEADERBOARD_ROUND_TYPE)
+      return (createdRound && 'objectId' in createdRound) ? createdRound.objectId : null
+    } catch (err) { return null }
   }, [suiClient])
 
-  // Fetch current round data
   const fetchRoundData = useCallback(async (roundObjectId: string) => {
     try {
-      const obj = await suiClient.getObject({
-        id: roundObjectId,
-        options: { showContent: true }
-      })
-
+      const obj = await suiClient.getObject({ id: roundObjectId, options: { showContent: true } })
       if (obj.data?.content?.dataType === 'moveObject') {
-        const fields = obj.data.content.fields as any
-        const prizePoolData = fields.prize_pool?.fields || fields.prize_pool
+        const f = obj.data.content.fields as any
+        const p = f.prize_pool?.fields || f.prize_pool
         const round: LeaderboardRound = {
-          objectId: roundObjectId,
-          roundId: Number(fields.round_id || 0),
-          fruitType: Number(fields.fruit_type || 1),
-          startTime: Number(fields.start_time || 0),
-          endTime: Number(fields.end_time || 0),
-          participantCount: Number(fields.participant_count || 0),
-          isActive: fields.is_active === true,
-          prizePool: Number(prizePoolData?.value || 0),
-          prizesDistributed: fields.prizes_distributed === true,
-          firstPlace: fields.first_place || '0x0',
-          firstWeight: Number(fields.first_weight || 0),
-          secondPlace: fields.second_place || '0x0',
-          secondWeight: Number(fields.second_weight || 0),
-          thirdPlace: fields.third_place || '0x0',
-          thirdWeight: Number(fields.third_weight || 0),
+          objectId: roundObjectId, roundId: Number(f.round_id), fruitType: Number(f.fruit_type),
+          startTime: Number(f.start_time), endTime: Number(f.end_time), participantCount: Number(f.participant_count),
+          isActive: f.is_active === true, prizePool: Number(p?.value || 0), prizesDistributed: f.prizes_distributed === true,
+          firstPlace: f.first_place, firstWeight: Number(f.first_weight), secondPlace: f.second_place,
+          secondWeight: Number(f.second_weight), thirdPlace: f.third_place, thirdWeight: Number(f.third_weight),
         }
         setCurrentRound(round)
-
-        // Fetch entries from the table
-        const entriesTable = fields.entries
-        if (entriesTable?.fields?.id?.id) {
-          await fetchEntries(entriesTable.fields.id.id, round.participantCount)
-        }
-
+        if (f.entries?.fields?.id?.id) await fetchEntries(f.entries.fields.id.id, round.participantCount)
         return round
       }
-      return null
-    } catch (err) {
-      console.error('Failed to fetch round data:', err)
-      return null
-    }
+    } catch (err) { return null }
   }, [suiClient])
 
-  // Fetch leaderboard entries
   const fetchEntries = async (tableId: string, count: number) => {
     try {
-      // For dynamic tables, we need to query dynamic fields
-      const dynamicFields = await suiClient.getDynamicFields({
-        parentId: tableId,
-        limit: Math.min(count, 50)
-      })
-
-      const entriesData: LeaderboardEntry[] = []
+      const fields = await suiClient.getDynamicFields({ parentId: tableId, limit: 50 })
+      const data: LeaderboardEntry[] = []
       
-      for (const field of dynamicFields.data) {
-        const fieldObj = await suiClient.getDynamicFieldObject({
-          parentId: tableId,
-          name: field.name
-        })
+      for (const f of fields.data) {
+        const obj = await suiClient.getDynamicFieldObject({ parentId: tableId, name: f.name })
         
-        if (fieldObj.data?.content?.dataType === 'moveObject') {
-          const value = (fieldObj.data.content.fields as any).value?.fields || 
-                        (fieldObj.data.content.fields as any).value
-          if (value) {
-            entriesData.push({
-              player: value.player || field.name.value,
-              best_weight: Number(value.best_weight || 0),
-              last_updated: Number(value.last_updated || 0),
-              joined_at: Number(value.joined_at || 0)
-            })
+        if (obj.data?.content?.dataType === 'moveObject') {
+          // Robust extraction logic
+          const contentFields = obj.data.content.fields as any
+          // The 'value' might be directly in fields, or nested inside 'value.fields', or simply 'value'
+          const val = contentFields.value?.fields || contentFields.value || contentFields
+          
+          // Ensure we have the required fields before pushing
+          if (val && (val.player || f.name.value)) {
+             data.push({ 
+               player: val.player || f.name.value, // Fallback to field name if player field is missing
+               best_weight: Number(val.best_weight || 0), 
+               last_updated: Number(val.last_updated || 0), 
+               joined_at: Number(val.joined_at || 0) 
+             })
           }
         }
       }
-
-      // Sort by weight descending
-      entriesData.sort((a, b) => b.best_weight - a.best_weight)
-      setEntries(entriesData)
-
-      // Find current user's entry
+      
+      // Deduplicate logic
+      const uniqueMap = new Map<string, LeaderboardEntry>()
+      data.forEach(e => {
+         const existing = uniqueMap.get(e.player)
+         if (!existing || e.best_weight > existing.best_weight) uniqueMap.set(e.player, e)
+      })
+      const uniqueEntries = Array.from(uniqueMap.values())
+      
+      uniqueEntries.sort((a, b) => b.best_weight - a.best_weight)
+      setEntries(uniqueEntries)
+      
       if (account?.address) {
-        const myEntryData = entriesData.find(e => e.player === account.address)
+        // Case-insensitive search
+        const myAddr = account.address.toLowerCase()
+        const myEntryData = uniqueEntries.find(e => e.player === account.address || e.player.toLowerCase() === myAddr)
         setMyEntry(myEntryData || null)
       }
-    } catch (err) {
-      console.error('Failed to fetch entries:', err)
-    }
+    } catch (err) { console.error("Fetch entries error:", err) }
   }
 
-  // Create new round (auto-triggered when needed) - SPONSORED
   const createNewRound = useCallback(async () => {
-    if (!account) {
-      console.log('Cannot create round: wallet not connected')
-      return null
-    }
-
-    setIsAutoStarting(true)
-    setTxStatus('🎲 Starting new tournament...')
-    
-    return new Promise<string | null>((resolve) => {
-      const tx = new Transaction()
-
-      tx.moveCall({
-        target: `${PACKAGE_ID}::leaderboard::create_new_round`,
-        arguments: [
-          tx.object(LEADERBOARD_CONFIG_ID),
-          tx.object('0x6'), // Clock
-          tx.object('0x8'), // Random
-        ],
-      })
-
-      signAndExecuteSponsored(
-        { transaction: tx },
-        {
-          onSuccess: async (result) => {
-            console.log('Create round result:', result)
-            setTxStatus('✅ New tournament started!')
-            // Wait a bit for the chain to update, then find the new round
-            setTimeout(async () => {
-              setTxStatus('')
-              setIsAutoStarting(false)
-              const newRoundId = await findLatestRound()
-              if (newRoundId) {
-                await fetchRoundData(newRoundId)
-              }
-              onUpdate?.()
-              resolve(newRoundId)
-            }, 2000)
-          },
-          onError: (err) => {
-            console.error('Create round failed:', err)
-            setTxStatus(`❌ Failed: ${err.message}`)
-            setIsAutoStarting(false)
-            resolve(null)
-          }
-        }
-      )
+    if (!account) return null
+    setIsAutoStarting(true); setTxStatus('🎲 Creating Round...')
+    const tx = new Transaction()
+    tx.moveCall({ target: `${PACKAGE_ID}::leaderboard::create_new_round`, arguments: [tx.object(LEADERBOARD_CONFIG_ID), tx.object('0x6'), tx.object('0x8')] })
+    signAndExecuteSponsored({ transaction: tx }, {
+      onSuccess: async () => {
+        setTxStatus('✅ New Tournament Started!')
+        setTimeout(async () => {
+          setTxStatus(''); setIsAutoStarting(false); const id = await findLatestRound();
+          if (id) await fetchRoundData(id); onUpdate?.()
+        }, 2000)
+      },
+      onError: (err) => { setTxStatus(`❌ Failed: ${err.message}`); setIsAutoStarting(false) }
     })
   }, [account, signAndExecuteSponsored, findLatestRound, fetchRoundData, onUpdate])
 
-  // Join leaderboard
   const joinLeaderboard = async () => {
-    if (!account || !inventoryId || !currentRound?.objectId) {
-      setTxStatus('Missing required objects')
-      return
-    }
-
-    setTxStatus('Joining leaderboard...')
-    const tx = new Transaction()
-
-    // Split 0.01 SUI for fee
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(JOIN_FEE_MIST)])
-
-    tx.moveCall({
-      target: `${PACKAGE_ID}::leaderboard::join_leaderboard`,
-      arguments: [
-        tx.object(currentRound.objectId),
-        tx.object(inventoryId),
-        coin,
-        tx.object('0x6'), // Clock
-      ],
+    if (!account || !inventoryId || !currentRound) return
+    setTxStatus('💰 Joining...')
+    const tx = new Transaction(); const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(JOIN_FEE_MIST)])
+    tx.moveCall({ target: `${PACKAGE_ID}::leaderboard::join_leaderboard`, arguments: [tx.object(currentRound.objectId), tx.object(inventoryId), coin, tx.object('0x6')] })
+    signAndExecute({ transaction: tx }, {
+      onSuccess: () => { setTxStatus('✅ Joined!'); setTimeout(() => { setTxStatus(''); fetchRoundData(currentRound.objectId); onUpdate?.() }, 2000) },
+      onError: (err) => setTxStatus(`❌ Failed: ${err.message}`)
     })
-
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          setTxStatus('✅ Joined leaderboard!')
-          console.log('Join result:', result)
-          setTimeout(async () => {
-            setTxStatus('')
-            await fetchRoundData(currentRound.objectId)
-            onUpdate?.()
-          }, 2000)
-        },
-        onError: (err) => {
-          console.error('Join failed:', err)
-          setTxStatus(`❌ Failed: ${err.message}`)
-        }
-      }
-    )
   }
 
-  // Update entry (re-scan for heaviest fruit) - SPONSORED
   const updateEntry = async () => {
-    if (!account || !inventoryId || !currentRound?.objectId) {
-      setTxStatus('Missing required objects')
-      return
-    }
-
-    setTxStatus('Updating entry...')
+    if (!account || !inventoryId || !currentRound) return
+    setTxStatus('🔄 Updating Score...')
     const tx = new Transaction()
-
-    tx.moveCall({
-      target: `${PACKAGE_ID}::leaderboard::update_entry`,
-      arguments: [
-        tx.object(currentRound.objectId),
-        tx.object(inventoryId),
-        tx.object('0x6'), // Clock
-      ],
+    tx.moveCall({ target: `${PACKAGE_ID}::leaderboard::update_entry`, arguments: [tx.object(currentRound.objectId), tx.object(inventoryId), tx.object('0x6')] })
+    signAndExecuteSponsored({ transaction: tx }, {
+      onSuccess: () => { setTxStatus('✅ Score Updated!'); setTimeout(() => { setTxStatus(''); fetchRoundData(currentRound.objectId); onUpdate?.() }, 2000) },
+      onError: (err) => setTxStatus(`❌ Failed: ${err.message}`)
     })
-
-    signAndExecuteSponsored(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          setTxStatus('✅ Entry updated!')
-          console.log('Update result:', result)
-          setTimeout(async () => {
-            setTxStatus('')
-            await fetchRoundData(currentRound.objectId)
-            onUpdate?.()
-          }, 2000)
-        },
-        onError: (err) => {
-          console.error('Update failed:', err)
-          setTxStatus(`❌ Failed: ${err.message}`)
-        }
-      }
-    )
   }
 
-  // Close round and distribute prizes (auto-triggered) - SPONSORED
-  const closeRoundAndDistribute = useCallback(async () => {
-    if (!account || !currentRound?.objectId) {
-      return false
-    }
-
-    setTxStatus('💰 Distributing prizes...')
-    
-    return new Promise<boolean>((resolve) => {
-      const tx = new Transaction()
-
-      tx.moveCall({
-        target: `${PACKAGE_ID}::leaderboard::close_round_and_distribute`,
-        arguments: [
-          tx.object(LEADERBOARD_CONFIG_ID),
-          tx.object(currentRound.objectId),
-          tx.object('0x6'), // Clock
-        ],
-      })
-
-      signAndExecuteSponsored(
-        { transaction: tx },
-        {
-          onSuccess: async (result) => {
-            setTxStatus('✅ Prizes distributed!')
-            console.log('Close result:', result)
-            setTimeout(async () => {
-              setTxStatus('')
-              await fetchRoundData(currentRound.objectId)
-              onUpdate?.()
-              resolve(true)
-            }, 2000)
-          },
-          onError: (err) => {
-            console.error('Close failed:', err)
-            setTxStatus(`❌ Distribution failed: ${err.message}`)
-            resolve(false)
-          }
-        }
-      )
-    })
-  }, [account, currentRound, signAndExecuteSponsored, fetchRoundData, onUpdate])
-
-  // Reset inventory after round ends - SPONSORED
-  const resetInventory = async () => {
-    if (!account || !inventoryId || !currentRound?.objectId) {
-      setTxStatus('Missing required objects')
-      return
-    }
-
-    setTxStatus('Resetting inventory for new round...')
+  const closeRoundAndDistribute = async () => {
+    if (!account || !currentRound) return
+    setTxStatus('💰 Distributing Prizes...')
     const tx = new Transaction()
-
-    tx.moveCall({
-      target: `${PACKAGE_ID}::leaderboard::reset_inventory_for_new_round`,
-      arguments: [
-        tx.object(currentRound.objectId),
-        tx.object(inventoryId),
-        tx.object('0x6'), // Clock
-      ],
+    tx.moveCall({ target: `${PACKAGE_ID}::leaderboard::close_round_and_distribute`, arguments: [tx.object(LEADERBOARD_CONFIG_ID), tx.object(currentRound.objectId), tx.object('0x6')] })
+    signAndExecuteSponsored({ transaction: tx }, {
+      onSuccess: () => { setTxStatus('✅ Prizes Distributed!'); setTimeout(() => { setTxStatus(''); fetchRoundData(currentRound.objectId); onUpdate?.() }, 2000) },
+      onError: (err) => setTxStatus(`❌ Failed: ${err.message}`)
     })
-
-    signAndExecuteSponsored(
-      { transaction: tx },
-      {
-        onSuccess: async (result) => {
-          setTxStatus('✅ Inventory reset!')
-          console.log('Reset result:', result)
-          setTimeout(() => {
-            setTxStatus('')
-            onUpdate?.()
-          }, 2000)
-        },
-        onError: (err) => {
-          console.error('Reset failed:', err)
-          setTxStatus(`❌ Failed: ${err.message}`)
-        }
-      }
-    )
   }
 
-  // Initialize: find latest round and check its status
-  const initializeLeaderboard = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const roundId = await findLatestRound()
-      if (roundId) {
-        const round = await fetchRoundData(roundId)
-        
-        // Check if round has ended and needs action
-        if (round) {
-          const now = Date.now()
-          const roundEnded = now >= round.endTime || !round.isActive
-          
-          if (roundEnded && !round.prizesDistributed && round.participantCount > 0) {
-            // Round ended but prizes not distributed - needs manual distribution
-            console.log('Round ended, prizes need to be distributed')
-          } else if (roundEnded && round.prizesDistributed) {
-            // Round completed, auto-start new one
-            console.log('Previous round completed, starting new one...')
-            if (account) {
-              await createNewRound()
-            }
-          }
-        }
-      } else {
-        // No rounds exist yet, create the first one
-        console.log('No rounds found, will create first round')
-        if (account) {
-          await createNewRound()
-        }
-      }
-    } catch (err) {
-      console.error('Error initializing leaderboard:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [findLatestRound, fetchRoundData, createNewRound, account])
+  useEffect(() => {
+    const init = async () => { setIsLoading(true); const id = await findLatestRound(); if (id) await fetchRoundData(id); setIsLoading(false) }
+    init()
+  }, [findLatestRound, fetchRoundData])
 
-  // Format SUI amount
-  const formatSUI = (mist: number) => {
-    const sui = mist / SUI_DECIMALS
-    if (sui >= 1) {
-      return `${sui.toFixed(4)} SUI`
-    }
-    return `${(sui * 1000).toFixed(2)} mSUI`
-  }
-
-  // Calculate prize amounts
-  const calculatePrize = (pool: number, rank: number) => {
-    if (rank === 1) return (pool * PRIZE_FIRST_PCT) / 100
-    if (rank === 2) return (pool * PRIZE_SECOND_PCT) / 100
-    if (rank === 3) return (pool * PRIZE_THIRD_PCT) / 100
-    return 0
-  }
-
-  // Update time remaining
   useEffect(() => {
     if (!currentRound) return
-
-    const updateTime = () => {
-      const now = Date.now()
-      const remaining = currentRound.endTime - now
-      
-      if (remaining <= 0) {
-        setTimeRemaining('Round Ended')
-        return
-      }
-
-      const days = Math.floor(remaining / (24 * 60 * 60 * 1000))
-      const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
-      const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000))
-      const seconds = Math.floor((remaining % (60 * 1000)) / 1000)
-
-      setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`)
+    const update = () => {
+      const rem = currentRound.endTime - Date.now()
+      if (rem <= 0) { setTimeRemaining('ENDED'); return }
+      const h = Math.floor((rem / (60 * 60 * 1000))); const m = Math.floor((rem % (60 * 60 * 1000)) / (60 * 1000)); const s = Math.floor((rem % (60 * 1000)) / 1000)
+      setTimeRemaining(`${h}h ${m}m ${s}s`)
     }
-
-    updateTime()
-    const interval = setInterval(updateTime, 1000)
-    return () => clearInterval(interval)
+    update(); const iv = setInterval(update, 1000); return () => clearInterval(iv)
   }, [currentRound])
 
-  // Initialize leaderboard on mount and when account changes
-  useEffect(() => {
-    initializeLeaderboard()
-  }, [initializeLeaderboard])
+  const fruitInfo = currentRound ? FRUITS.find(f => f.level === currentRound.fruitType) : null
+  const formatAddr = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`
+  const formatW = (w: number) => w >= 1000 ? `${(w / 1000).toFixed(2)}kg` : `${w}g`
+  const formatSUI = (m: number) => (m / SUI_DECIMALS).toFixed(3) + ' SUI'
 
-  // Periodic refresh (every 30 seconds)
-  useEffect(() => {
-    refreshIntervalRef.current = setInterval(async () => {
-      if (currentRound?.objectId) {
-        await fetchRoundData(currentRound.objectId)
-      }
-    }, 30000)
-    
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current)
-      }
-    }
-  }, [currentRound?.objectId, fetchRoundData])
+  // Calculate Prize Pool manually: Participants * Fee * 0.9
+  const displayPrizePool = currentRound ? (currentRound.participantCount * JOIN_FEE_MIST * 0.9) : 0
 
-  const getFruitInfo = (level: number) => FRUITS.find(f => f.level === level) || FRUITS[0]
-  const fruitInfo = currentRound ? getFruitInfo(currentRound.fruitType) : null
-
-  const formatWeight = (weight: number) => {
-    if (weight >= 1000) {
-      return `${(weight / 1000).toFixed(2)} kg`
-    }
-    return `${weight} g`
-  }
-
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-  }
-
-  const isRoundActive = currentRound?.isActive && Date.now() < (currentRound?.endTime || 0)
-  const needsPrizeDistribution = currentRound && !isRoundActive && !currentRound.prizesDistributed && currentRound.participantCount > 0
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div style={{ 
-        padding: '1rem', 
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-        borderRadius: '12px',
-        color: 'white',
-        minHeight: '500px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏆</div>
-          <div style={{ fontSize: '1.2rem', color: '#f39c12' }}>Loading Tournament...</div>
-        </div>
-      </div>
-    )
-  }
+  // Check if user is already a participant
+  const isParticipant = entries.some(e => e.player === account?.address)
 
   return (
-    <div style={{ 
-      padding: '1rem', 
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-      borderRadius: '12px',
-      color: 'white',
-      minHeight: '500px'
-    }}>
-      <h2 style={{ 
-        textAlign: 'center', 
-        marginBottom: '1.5rem',
-        fontSize: '1.8rem',
-        background: 'linear-gradient(90deg, #f39c12, #e74c3c)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent'
-      }}>
-        🏆 Weekly Leaderboard
-      </h2>
+    <div className="rank-container">
+      {txStatus && <div className="tx-status-overlay">{txStatus}</div>}
 
-      {/* Status Message */}
-      {txStatus && (
-        <div style={{
-          textAlign: 'center',
-          padding: '0.75rem',
-          marginBottom: '1rem',
-          background: txStatus.includes('❌') ? 'rgba(231,76,60,0.2)' : 'rgba(46,204,113,0.2)',
-          borderRadius: '8px',
-          fontWeight: 'bold'
-        }}>
-          {txStatus}
-        </div>
-      )}
-
-      {/* Auto-starting message */}
-      {isAutoStarting && (
-        <div style={{
-          textAlign: 'center',
-          padding: '2rem',
-          background: 'rgba(243,156,18,0.2)',
-          borderRadius: '12px',
-          marginBottom: '1rem',
-          border: '2px solid #f39c12'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎲</div>
-          <div style={{ fontWeight: 'bold' }}>Starting New Tournament...</div>
-          <div style={{ fontSize: '0.9rem', color: '#888', marginTop: '0.5rem' }}>Please approve the transaction</div>
-        </div>
-      )}
-
-      {/* No Round - Will auto-create */}
-      {!currentRound && !isAutoStarting && (
-        <div style={{
-          textAlign: 'center',
-          padding: '2rem',
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '12px',
-          marginBottom: '1.5rem'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎮</div>
-          <p style={{ color: '#888', marginBottom: '1rem' }}>No active tournament found</p>
-          {account ? (
-            <button
-              onClick={createNewRound}
-              disabled={isPending}
-              style={{
-                padding: '1rem 2rem',
-                background: 'linear-gradient(90deg, #f39c12, #e74c3c)',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                cursor: isPending ? 'not-allowed' : 'pointer',
-                opacity: isPending ? 0.5 : 1
-              }}
-            >
-              🎲 Start Tournament
-            </button>
-          ) : (
-            <p style={{ color: '#f39c12' }}>Connect wallet to start a tournament</p>
-          )}
-        </div>
-      )}
-
-      {/* Current Round Info */}
-      {currentRound && (
-        <div style={{
-          background: 'rgba(255,255,255,0.1)',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          marginBottom: '1.5rem',
-          border: isRoundActive ? '2px solid #2ecc71' : needsPrizeDistribution ? '2px solid #f39c12' : '2px solid #9b59b6'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div>
-              <span style={{ fontSize: '0.8rem', color: '#888' }}>Round #{currentRound.roundId}</span>
-              <h3 style={{ margin: '0.25rem 0', fontSize: '1.5rem' }}>
-                {fruitInfo?.emoji} {fruitInfo?.name} Competition
-              </h3>
-            </div>
-            <div style={{
-              padding: '0.5rem 1rem',
-              background: isRoundActive ? '#2ecc71' : currentRound.prizesDistributed ? '#9b59b6' : '#f39c12',
-              borderRadius: '20px',
-              fontSize: '0.9rem',
-              fontWeight: 'bold'
-            }}>
-              {isRoundActive ? '🟢 ACTIVE' : currentRound.prizesDistributed ? '💰 COMPLETED' : '⏰ AWAITING PRIZES'}
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Time Remaining</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f39c12' }}>{timeRemaining}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Participants</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{currentRound.participantCount}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Join Fee</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>0.01 SUI</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Prize Pool</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#2ecc71' }}>{formatSUI(currentRound.prizePool)}</div>
-            </div>
-          </div>
-
-          {/* Prize Distribution Preview */}
-          {currentRound.prizePool > 0 && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '1rem',
-              background: 'rgba(0,0,0,0.2)',
-              borderRadius: '8px'
-            }}>
-              <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.9rem', color: '#f1c40f' }}>🏆 Prize Distribution</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
-                <div style={{ 
-                  padding: '0.75rem', 
-                  background: 'linear-gradient(135deg, rgba(241,196,15,0.3), rgba(230,126,34,0.3))',
-                  borderRadius: '8px',
-                  border: '1px solid #f39c12'
-                }}>
-                  <div style={{ fontSize: '1.5rem' }}>🥇</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>1st Place (50%)</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f39c12' }}>
-                    {formatSUI(calculatePrize(currentRound.prizePool, 1))}
-                  </div>
-                  {currentRound.firstPlace !== '0x0' && currentRound.firstWeight > 0 && (
-                    <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.25rem' }}>
-                      {formatAddress(currentRound.firstPlace)} • {formatWeight(currentRound.firstWeight)}
-                    </div>
-                  )}
-                </div>
-                <div style={{ 
-                  padding: '0.75rem', 
-                  background: 'linear-gradient(135deg, rgba(189,195,199,0.3), rgba(149,165,166,0.3))',
-                  borderRadius: '8px',
-                  border: '1px solid #bdc3c7'
-                }}>
-                  <div style={{ fontSize: '1.5rem' }}>🥈</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>2nd Place (25%)</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#bdc3c7' }}>
-                    {formatSUI(calculatePrize(currentRound.prizePool, 2))}
-                  </div>
-                  {currentRound.secondPlace !== '0x0' && currentRound.secondWeight > 0 && (
-                    <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.25rem' }}>
-                      {formatAddress(currentRound.secondPlace)} • {formatWeight(currentRound.secondWeight)}
-                    </div>
-                  )}
-                </div>
-                <div style={{ 
-                  padding: '0.75rem', 
-                  background: 'linear-gradient(135deg, rgba(230,126,34,0.3), rgba(211,84,0,0.3))',
-                  borderRadius: '8px',
-                  border: '1px solid #e67e22'
-                }}>
-                  <div style={{ fontSize: '1.5rem' }}>🥉</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>3rd Place (10%)</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#e67e22' }}>
-                    {formatSUI(calculatePrize(currentRound.prizePool, 3))}
-                  </div>
-                  {currentRound.thirdPlace !== '0x0' && currentRound.thirdWeight > 0 && (
-                    <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.25rem' }}>
-                      {formatAddress(currentRound.thirdPlace)} • {formatWeight(currentRound.thirdWeight)}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#888', textAlign: 'center' }}>
-                Owner: 10% • Treasury: 5%
-              </div>
-            </div>
-          )}
-
-          {/* Prize Distribution Alert */}
-          {needsPrizeDistribution && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '1rem',
-              background: 'rgba(243,156,18,0.2)',
-              borderRadius: '8px',
-              border: '1px solid #f39c12',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>⏰ Tournament Ended!</div>
-              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.75rem' }}>
-                Click below to distribute prizes to winners
-              </div>
-              <button
-                onClick={closeRoundAndDistribute}
-                disabled={isPending}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  background: 'linear-gradient(90deg, #f39c12, #e74c3c)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: '1rem',
-                  cursor: isPending ? 'not-allowed' : 'pointer',
-                  opacity: isPending ? 0.5 : 1
-                }}
-              >
-                💰 Distribute Prizes & Start New Round
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      {currentRound && isRoundActive && (
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          justifyContent: 'center'
-        }}>
-          {!myEntry && (
-            <button
-              onClick={joinLeaderboard}
-              disabled={isPending || !inventoryId}
-              style={{
-                padding: '1rem 2rem',
-                background: 'linear-gradient(90deg, #2ecc71, #27ae60)',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                cursor: isPending || !inventoryId ? 'not-allowed' : 'pointer',
-                opacity: isPending || !inventoryId ? 0.5 : 1
-              }}
-            >
-              💰 Join Tournament (0.01 SUI)
-            </button>
-          )}
-          
-          {myEntry && (
-            <button
-              onClick={updateEntry}
-              disabled={isPending}
-              style={{
-                padding: '1rem 2rem',
-                background: 'linear-gradient(90deg, #3498db, #2980b9)',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                cursor: isPending ? 'not-allowed' : 'pointer'
-              }}
-            >
-              🔄 Update My Score
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* My Entry */}
-      {myEntry && currentRound && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(52,152,219,0.3), rgba(41,128,185,0.3))',
-          padding: '1rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          border: '2px solid #3498db'
-        }}>
-          <h4 style={{ marginBottom: '0.5rem' }}>📍 Your Entry</h4>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Best {fruitInfo?.name} Weight</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f39c12' }}>
-                {fruitInfo?.emoji} {formatWeight(myEntry.best_weight)}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.8rem', color: '#888' }}>Current Rank</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                #{entries.findIndex(e => e.player === account?.address) + 1}
-              </div>
-            </div>
-          </div>
-          
-          {/* Reset Inventory button when tournament is completed */}
-          {currentRound.prizesDistributed && (
-            <button
-              onClick={resetInventory}
-              disabled={isPending}
-              style={{
-                marginTop: '1rem',
-                width: '100%',
-                padding: '0.75rem',
-                background: 'linear-gradient(90deg, #e74c3c, #c0392b)',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '0.9rem',
-                cursor: isPending ? 'not-allowed' : 'pointer'
-              }}
-            >
-              🗑️ Clear Inventory for Next Tournament
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Leaderboard Table */}
-      <div style={{
-        background: 'rgba(255,255,255,0.05)',
-        borderRadius: '12px',
-        overflow: 'hidden'
-      }}>
-        <h4 style={{ 
-          padding: '1rem', 
-          margin: 0, 
-          background: 'rgba(0,0,0,0.2)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          🏅 Rankings
-        </h4>
-        
-        {entries.length > 0 ? (
-          <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-            {entries.map((entry, index) => (
-              <div
-                key={entry.player}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '1rem',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: entry.player === account?.address ? 'rgba(52,152,219,0.2)' : 'transparent'
-                }}
-              >
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '1.2rem',
-                  background: index === 0 ? 'linear-gradient(135deg, #f39c12, #e74c3c)' :
-                             index === 1 ? 'linear-gradient(135deg, #bdc3c7, #95a5a6)' :
-                             index === 2 ? 'linear-gradient(135deg, #e67e22, #d35400)' :
-                             'rgba(255,255,255,0.1)',
-                  marginRight: '1rem'
-                }}>
-                  {index < 3 ? ['🥇', '🥈', '🥉'][index] : index + 1}
-                </div>
-                
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold' }}>
-                    {formatAddress(entry.player)}
-                    {entry.player === account?.address && (
-                      <span style={{ marginLeft: '0.5rem', color: '#3498db', fontSize: '0.8rem' }}>(You)</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    Last updated: {new Date(entry.last_updated).toLocaleString()}
-                  </div>
-                </div>
-                
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f39c12' }}>
-                    {fruitInfo?.emoji} {formatWeight(entry.best_weight)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-            No participants yet. Be the first to join!
+      <div className="rank-header">
+        <h1 className="rank-title">HALL OF FAME</h1>
+        {currentRound && (
+          <div className="round-info-badge">
+            ROUND #{currentRound.roundId} • {timeRemaining}
           </div>
         )}
       </div>
 
-      {/* Instructions */}
-      <div style={{
-        marginTop: '1.5rem',
-        padding: '1rem',
-        background: 'rgba(241,196,15,0.1)',
-        borderRadius: '8px',
-        border: '1px solid rgba(241,196,15,0.3)'
-      }}>
-        <h4 style={{ margin: '0 0 0.5rem 0', color: '#f1c40f' }}>📋 How to Play</h4>
-        <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.9rem', color: '#bbb', lineHeight: '1.6' }}>
-          <li>Pay <strong>0.01 SUI</strong> to join the weekly competition</li>
-          <li>Grow and merge <strong>{fruitInfo?.emoji} {fruitInfo?.name}s</strong> in your land</li>
-          <li>Your <strong>heaviest</strong> fruit of this type auto-submits to leaderboard</li>
-          <li>Click "Update My Entry" after merging to refresh your score</li>
-          <li>Top players win when the round ends!</li>
-          <li>⚠️ <strong>All fruits & seeds are deleted</strong> when round closes</li>
-        </ol>
-      </div>
+      {!currentRound && !isAutoStarting && (
+        <div className="no-round-state">
+          <div className="no-round-icon">🤷‍♂️</div>
+          <p>No tournament active</p>
+          <button className="rank-btn primary" onClick={createNewRound}>START NEW SEASON</button>
+        </div>
+      )}
+
+      {currentRound && (
+        <>
+          <div className="competition-target">
+            <div className="target-card">
+              <span className="target-label">Current Target:</span>
+              <div className="target-fruit">
+                <img src={fruitInfo?.image} alt={fruitInfo?.name} />
+                <h3>{fruitInfo?.name}</h3>
+              </div>
+              <div className="target-prize">
+                <span className="prize-label">Prize Pool:</span>
+                <span className="prize-value">{formatSUI(displayPrizePool)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TOP 3 PODIUM */}
+          <div className="podium-container">
+            {/* 2nd Place */}
+            <div className="podium-item second">
+              <div className="medal">🥈</div>
+              <div className="podium-bar">
+                <span className="addr">{entries[1] ? formatAddr(entries[1].player) : '---'}</span>
+                <span className="weight">{entries[1] ? formatW(entries[1].best_weight) : ''}</span>
+              </div>
+              <div className="prize-tag highlight">{formatSUI(displayPrizePool * 0.25)}</div>
+            </div>
+            {/* 1st Place */}
+            <div className="podium-item first">
+              <div className="medal gold">🥇</div>
+              <div className="podium-bar">
+                <span className="addr">{entries[0] ? formatAddr(entries[0].player) : '---'}</span>
+                <span className="weight">{entries[0] ? formatW(entries[0].best_weight) : ''}</span>
+              </div>
+              <div className="prize-tag gold-glow">{formatSUI(displayPrizePool * 0.50)}</div>
+            </div>
+            {/* 3rd Place */}
+            <div className="podium-item third">
+              <div className="medal">🥉</div>
+              <div className="podium-bar">
+                <span className="addr">{entries[2] ? formatAddr(entries[2].player) : '---'}</span>
+                <span className="weight">{entries[2] ? formatW(entries[2].best_weight) : ''}</span>
+              </div>
+              <div className="prize-tag highlight">{formatSUI(displayPrizePool * 0.10)}</div>
+            </div>
+          </div>
+
+          {/* ACTIONS */}
+          <div className="rank-actions">
+            {!myEntry && currentRound.isActive && (
+              <button className="rank-btn join" onClick={joinLeaderboard}>JOIN COMPETITION (0.01 SUI)</button>
+            )}
+            {myEntry && currentRound.isActive && (
+              <button className="rank-btn update" onClick={updateEntry}>UPDATE MY SCORE</button>
+            )}
+            {!currentRound.isActive && !currentRound.prizesDistributed && (
+              <button className="rank-btn distribute" onClick={closeRoundAndDistribute}>DISTRIBUTE PRIZES</button>
+            )}
+          </div>
+
+          {/* LIST */}
+          <div className="rank-list-wrapper">
+            <h3 className="list-title">All Participants ({currentRound.participantCount})</h3>
+            <div className="rank-list">
+              {entries.map((e, i) => (
+                <div key={e.player} className={`rank-row ${e.player === account?.address ? 'is-me' : ''}`}>
+                  <div className="rank-num">#{i + 1}</div>
+                  <div className="rank-player-info">
+                    <span className="rank-addr">{formatAddr(e.player)} {e.player === account?.address && '(You)'}</span>
+                    <span className="rank-date">{new Date(e.last_updated).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="rank-score">{formatW(e.best_weight)}</div>
+                </div>
+              ))}
+              {entries.length === 0 && <p className="no-entries">Be the first to join!</p>}
+            </div>
+          </div>
+        </>
+      )}
+
+      <style>{`
+        .rank-container { max-width: 800px; margin: 0 auto; color: #2c3e50; padding-bottom: 40px; }
+        .rank-loading { text-align: center; padding: 100px; font-size: 1.5rem; color: #fff; font-weight: 900; }
+        
+        .rank-header { text-align: center; margin-bottom: 30px; }
+        .rank-title { font-size: 3rem; font-weight: 950; color: #fff; text-shadow: 4px 4px 0 #3498db, 8px 8px 0 rgba(0,0,0,0.2); margin: 0; }
+        .round-info-badge { display: inline-block; background: #2c3e50; color: #fff; padding: 5px 15px; border-radius: 20px; font-weight: 800; margin-top: 10px; font-size: 0.9rem; }
+
+        /* Target Card */
+        .competition-target { margin-bottom: 40px; display: flex; justify-content: center; }
+        .target-card { background: #fff9e3; border: 6px solid #2c3e50; border-radius: 32px; padding: 20px 40px; display: flex; align-items: center; gap: 30px; box-shadow: 10px 10px 0 rgba(0,0,0,0.2); }
+        .target-fruit { display: flex; flex-direction: column; align-items: center; }
+        .target-fruit img { width: 60px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.1)); }
+        .target-fruit h3 { margin: 5px 0 0 0; font-weight: 900; text-transform: uppercase; color: #e67e22; }
+        .prize-value { display: block; font-size: 1.8rem; font-weight: 900; color: #2ecc71; }
+        .target-label, .prize-label { font-size: 0.8rem; font-weight: 800; color: #7f8c8d; text-transform: uppercase; }
+
+        /* Podium */
+        .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-bottom: 40px; height: 250px; }
+        .podium-item { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 150px; }
+        .podium-bar { width: 100%; border: 6px solid #2c3e50; border-bottom: none; border-radius: 20px 20px 0 0; display: flex; flex-direction: column; align-items: center; padding: 15px 5px; color: #fff; font-weight: 800; text-align: center; }
+        .podium-item.first .podium-bar { height: 180px; background: #f1c40f; box-shadow: inset -8px 0 0 rgba(0,0,0,0.1); }
+        .podium-item.second .podium-bar { height: 130px; background: #bdc3c7; box-shadow: inset -8px 0 0 rgba(0,0,0,0.1); }
+        .podium-item.third .podium-bar { height: 100px; background: #e67e22; box-shadow: inset -8px 0 0 rgba(0,0,0,0.1); }
+        .medal { font-size: 3rem; margin-bottom: -10px; z-index: 2; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
+        .podium-bar .addr { font-size: 0.8rem; margin-bottom: 5px; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 10px; }
+        .podium-bar .weight { font-size: 1.2rem; }
+        
+        .prize-tag { 
+          font-size: 1rem; 
+          font-weight: 900;
+          padding: 5px 15px; 
+          border-radius: 12px; 
+          margin-top: 15px; 
+          color: #fff;
+          border: 3px solid #fff;
+          box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+          text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+          min-width: 100px;
+          z-index: 5;
+        }
+        
+        .prize-tag.highlight {
+          background: linear-gradient(135deg, #3498db, #2980b9);
+          box-shadow: 0 0 15px rgba(52, 152, 219, 0.5), 0 4px 0 #1c598a;
+        }
+
+        .prize-tag.gold-glow {
+          background: linear-gradient(135deg, #f1c40f, #f39c12);
+          box-shadow: 0 0 20px rgba(241, 196, 15, 0.6), 0 4px 0 #d35400;
+          transform: scale(1.1);
+          color: #2c3e50;
+          border-color: #fff;
+        }
+
+        /* List */
+        .rank-list-wrapper { background: rgba(0,0,0,0.2); border-radius: 32px; border: 4px solid #2c3e50; padding: 20px; }
+        .list-title { color: #fff; margin-top: 0; font-weight: 900; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .rank-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 10px; }
+        .rank-row { background: #fff9e3; border: 4px solid #2c3e50; border-radius: 16px; padding: 12px 20px; display: flex; align-items: center; box-shadow: 4px 4px 0 rgba(0,0,0,0.1); }
+        .rank-row.is-me { border-color: #3498db; background: #e3f2fd; }
+        .rank-num { font-size: 1.5rem; font-weight: 950; width: 50px; color: #7f8c8d; }
+        .rank-player-info { flex: 1; display: flex; flex-direction: column; }
+        .rank-addr { font-weight: 800; font-size: 1.1rem; }
+        .rank-date { font-size: 0.7rem; color: #95a5a6; }
+        .rank-score { font-size: 1.3rem; font-weight: 900; color: #e67e22; }
+
+        /* Buttons */
+        .rank-actions { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; }
+        .rank-btn { padding: 15px 30px; border-radius: 20px; border: 4px solid #fff; font-weight: 900; font-size: 1.1rem; text-transform: uppercase; cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,0.2); transition: all 0.1s; }
+        .rank-btn:active { transform: translateY(4px); box-shadow: none; }
+        .rank-btn.primary { background: #f1c40f; color: #2c3e50; }
+        .rank-btn.join { background: #2ecc71; color: #fff; }
+        .rank-btn.update { background: #3498db; color: #fff; }
+        .rank-btn.distribute { background: #9b59b6; color: #fff; }
+
+        .tx-status-overlay { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #000; color: #f1c40f; padding: 10px 25px; border-radius: 30px; border: 2px solid #f1c40f; font-weight: bold; z-index: 1100; }
+
+        @media (max-width: 768px) {
+          .target-card { flex-direction: column; gap: 10px; padding: 20px; }
+          .podium-container { height: auto; align-items: center; flex-direction: column; }
+          .podium-item { width: 100%; max-width: 100%; }
+          .podium-bar { height: auto !important; border-radius: 20px; border-bottom: 6px solid #2c3e50; }
+          .medal { margin-bottom: 0; font-size: 2rem; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -265,55 +265,66 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
         .merge-btn { background: #f1c40f; border: 3px solid #fff; padding: 10px 20px; border-radius: 12px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 0 #d35400; transition: 0.1s; }
         .merge-btn:active { transform: translateY(4px); box-shadow: none; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
-        .confirm-modal, .result-modal { background: #fff9e3; padding: 30px; border-radius: 32px; width: 90%; max-width: 550px; border: 6px solid #2c3e50; box-shadow: 12px 12px 0 rgba(0,0,0,0.3); text-align: center; color: #2c3e50; position: relative; }
+        .confirm-modal { background: #fff9e3; padding: 30px; border-radius: 32px; width: 90%; max-width: 550px; border: 6px solid #2c3e50; box-shadow: 12px 12px 0 rgba(0,0,0,0.3); text-align: center; color: #2c3e50; position: relative; }
         .burn-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin: 20px 0; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 20px; }
         .burn-item { background: #fff; border: 3px solid #bdc3c7; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
         .confirm-btn { background: #2ecc71; color: white; border: 3px solid #fff; padding: 12px 30px; border-radius: 16px; font-weight: 900; box-shadow: 0 6px 0 #27ae60; cursor: pointer; }
         .confirm-btn:active { transform: translateY(4px); box-shadow: none; }
-        .result-card { background: white; border-radius: 24px; padding: 20px; margin: 20px auto; width: 220px; border: 6px solid; }
-        .res-pill { padding: 4px 12px; border-radius: 12px; font-weight: bold; color: white; margin-top: 5px; display: inline-block; }
+        
+        /* Result Modal Styles */
+        .result-modal { 
+          background: #fff9e3; 
+          border: 6px solid #2c3e50; 
+          border-radius: 32px; 
+          padding: 40px; 
+          width: 90%; 
+          max-width: 450px; 
+          text-align: center; 
+          position: relative; 
+          box-shadow: 15px 15px 0 rgba(0,0,0,0.3); 
+          overflow: hidden; 
+          animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .shine-effect { 
+          position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; 
+          background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%); 
+          animation: rotate 8s linear infinite; z-index: 0; opacity: 0.5;
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .result-modal h3 { position: relative; z-index: 2; font-size: 2.5rem; color: #f1c40f; text-shadow: 3px 3px 0 #d35400; margin-bottom: 20px; margin-top: 0; }
+        
+        .result-card { 
+          background: white; border-radius: 24px; padding: 30px; margin: 20px auto; width: 240px; 
+          border: 8px solid; position: relative; z-index: 2; 
+          box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+          transform: rotate(-2deg); transition: transform 0.3s;
+        }
+        .result-card:hover { transform: rotate(0) scale(1.05); }
+        .result-card h4 { font-size: 1.8rem; text-transform: uppercase; margin: 10px 0; color: #2c3e50; font-weight: 900; }
+        
+        .result-stats { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+        .res-pill { padding: 6px 16px; border-radius: 12px; font-weight: 900; color: white; text-transform: uppercase; font-size: 1rem; border: 2px solid rgba(0,0,0,0.1); box-shadow: 0 3px 0 rgba(0,0,0,0.1); }
         .res-pill.weight { background: #e67e22; }
+        
+        .result-modal .confirm-btn { position: relative; z-index: 2; font-size: 1.2rem; padding: 15px 40px; background: linear-gradient(to bottom, #2ecc71, #27ae60); box-shadow: 0 6px 0 #1e8449; border: 3px solid #fff; }
+        .result-modal .confirm-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1e8449; }
+
         .tx-status-overlay { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #000; color: #f1c40f; padding: 10px 25px; border-radius: 30px; border: 2px solid #f1c40f; font-weight: bold; z-index: 1100; }
 
         @media (max-width: 768px) { 
-          .merge-layout { 
-            flex-direction: column; 
-            gap: 20px;
-          } 
-          .merchant-column { 
-            display: none; 
-          } 
-          .merge-list-column { 
-            width: 100%; 
-            padding: 10px; /* Giảm padding */
-            border: 2px solid #2c3e50; 
-            box-sizing: border-box;
-          }
-          .merge-card {
-            padding: 10px; /* Thu nhỏ card */
-            gap: 10px;
-            box-sizing: border-box;
-          }
-          .merge-info {
-            gap: 10px;
-            flex: 1;
-            min-width: 0; /* Cho phép text co lại */
-          }
-          .fruit-preview {
-            width: 50px;
-            height: 50px;
-            flex-shrink: 0;
-          }
-          .merge-details h3 {
-            font-size: 0.9rem;
-          }
-          .merge-details p {
-            font-size: 0.7rem;
-          }
-          .merge-btn {
-            padding: 8px 12px;
-            font-size: 0.8rem;
-          }
+          .merge-layout { flex-direction: column; gap: 20px; } 
+          .merchant-column { display: none; } 
+          .merge-list-column { width: 100%; padding: 10px; border: 2px solid #2c3e50; box-sizing: border-box; }
+          .merge-card { padding: 10px; gap: 10px; box-sizing: border-box; }
+          .merge-info { gap: 10px; flex: 1; min-width: 0; }
+          .fruit-preview { width: 50px; height: 50px; flex-shrink: 0; }
+          .merge-details h3 { font-size: 0.9rem; }
+          .merge-details p { font-size: 0.7rem; }
+          .merge-btn { padding: 8px 12px; font-size: 0.8rem; }
         }
       `}</style>
     </div>
