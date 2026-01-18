@@ -9,6 +9,9 @@ import Market from './components/Market'
 import Leaderboard from './components/Leaderboard'
 import NFTCollection from './components/NFTCollection'
 
+// Import Logo mới
+import logoDoc from './assets/Logo dọc.svg'
+
 // Import bộ 9 file CSS Modular (Đảm bảo ní đã tạo các file này trong thư mục styles)
 import './styles/Base.css'
 import './styles/Layout.css'
@@ -232,8 +235,7 @@ function App() {
           {/* SIDEBAR / BOTTOM BAR */}
           <aside className="sidebar-menu">
             <div className="sidebar-header">
-              <img src={imgWatermelon} alt="Watery Logo" className="game-logo" />
-              <h2 className="watery-title">WATERY</h2>
+              <img src={logoDoc} alt="Watery Logo" className="game-logo-main" />
             </div>
             
             <nav className="sidebar-nav">
@@ -250,7 +252,7 @@ function App() {
                 <span className="icon">💎</span><span className="label">NFTs</span>
               </button>
               <button className={activeTab === 'market' ? 'active' : ''} onClick={() => handleTabChange('market')}>
-                <span className="icon">🏪</span><span className="label">MARKET</span>
+                <span className="icon">🏪</span><span className="label">MERGE</span>
               </button>
               <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => handleTabChange('leaderboard')}>
                 <span className="icon">🏆</span><span className="label">RANK</span>

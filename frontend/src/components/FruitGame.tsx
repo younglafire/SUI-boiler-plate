@@ -15,6 +15,9 @@ import imgPineapple from '../assets/fruit/Thơm.png'
 import imgMelon from '../assets/fruit/Dưa lưới.png'
 import imgWatermelon from '../assets/fruit/Dưa hấu.png'
 
+// Import Logo mới
+import logoNgang from '../assets/Logo ngang.svg'
+
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
 const SEED_ADMIN_CAP = '0x4d1847752f9470d9cd83a6c76b71801c32623b1c095c8d1f666500223cbfd5ac'
 const SEED_DECIMALS = 1_000_000_000n
@@ -144,8 +147,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
 
   const generateFruitBody = useCallback((x: number, y: number, sizeIndex: number, extraConfig: object = {}): FruitBody => {
     const fruit = FRUITS[sizeIndex]
-    // Scale fruit radius based on game width scaling if needed
-    // For now, keep fruits same size for fun, unless screen is VERY small
     const scale = gameDimensions.current.scale;
     
     const body: FruitBody = Matter.Bodies.circle(x, y, fruit.radius * scale, {
@@ -232,13 +233,9 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
 
     if (window.innerWidth < 768) {
         // Mobile Logic
-        // Width: 95% of screen width (max 400px to keep it playable)
         width = Math.min(window.innerWidth * 0.95, 450); 
-        // Height: 65% of screen height
         height = window.innerHeight * 0.65;
         if (height < 500) height = 500;
-        
-        // Scale fruits slightly down on small screens to fit more
         scale = Math.min(1, width / 400); 
     }
 
@@ -265,7 +262,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     })
     renderRef.current = render
 
-    // Adjust walls to new width/height
     const wallProps = {
       isStatic: true,
       render: { fillStyle: '#FFEEDB' },
@@ -273,7 +269,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     }
 
     const walls = [
-      // Bottom
       Matter.Bodies.rectangle(
         width / 2, 
         height + WALL_THICKNESS / 2, 
@@ -281,7 +276,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         WALL_THICKNESS, 
         { ...wallProps, label: 'wall' }
       ),
-      // Left
       Matter.Bodies.rectangle(
         -WALL_THICKNESS / 2, 
         height / 2, 
@@ -289,7 +283,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         height, 
         { ...wallProps, label: 'wall' }
       ),
-      // Right
       Matter.Bodies.rectangle(
         width + WALL_THICKNESS / 2, 
         height / 2, 
@@ -435,7 +428,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       runnerRef.current.enabled = true
     }
 
-    // Resize canvas if needed
     if (renderRef.current && canvasRef.current) {
         renderRef.current.canvas.width = gameDimensions.current.width;
         renderRef.current.canvas.height = gameDimensions.current.height;
@@ -489,7 +481,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
 
-    // Scale mouse position to game coordinates
     const scaleX = gameDimensions.current.width / rect.width
     const relativeX = (e.clientX - rect.left) * scaleX
 
@@ -596,8 +587,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
           
           {!gameStarted && (
             <div className="game-overlay start-screen">
-              <img src={imgWatermelon} alt="Watery Logo" className="start-logo" style={{ width: '120px', marginBottom: '1rem' }} />
-              <h2 style={{ fontSize: '3rem', letterSpacing: '4px' }}>WATERY</h2>
+              <img src={logoNgang} alt="Watery Logo" className="start-logo-img" />
               {!areAssetsLoaded ? (
                 <p>Loading Assets...</p>
               ) : (
@@ -746,14 +736,15 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
           box-shadow: 0 20px 50px rgba(0,0,0,0.4);
           background: #e8f5e9;
           border: 8px solid #34495e;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
         
-        .canvas-container canvas {
-          /* Scale thông minh cho mobile */
-          height: 100% !important; 
-          width: auto !important; 
-          max-width: 100%; 
-          object-fit: contain; 
+        .start-logo-img {
+          width: 300px;
+          margin-bottom: 2rem;
+          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
         }
 
         /* RESPONSIVE MOBILE */
@@ -774,10 +765,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
             min-width: unset;
           }
 
-          .v-stat {
-            justify-content: center;
-          }
-          
           .v-stat-value {
             font-size: 1.4rem;
           }
@@ -794,10 +781,15 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
             min-height: 500px;
           }
           
+          .start-logo-img {
+            width: 200px;
+          }
+          
           .canvas-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain; /* Quay về contain để đảm bảo thấy hết game */
+            height: 100% !important; 
+            width: auto !important; 
+            max-width: 100%; 
+            object-fit: contain; 
           }
         }
       `}</style>
