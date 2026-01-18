@@ -16,30 +16,20 @@ import imgMelon from '../assets/fruit/Dưa lưới.png'
 import imgWatermelon from '../assets/fruit/Dưa hấu.png'
 
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
-
-// SeedAdminCap shared object ID (from contract publish)
 const SEED_ADMIN_CAP = '0x4d1847752f9470d9cd83a6c76b71801c32623b1c095c8d1f666500223cbfd5ac'
-
-// SEED coin has 9 decimals, so multiply by 10^9
 const SEED_DECIMALS = 1_000_000_000n
 
-// Game constants
-const GAME_WIDTH = 900
-const GAME_HEIGHT = 800
 const WALL_THICKNESS = 20
 const PREVIEW_BALL_Y = 50
-const LOSE_HEIGHT = 150 // Tăng vạch thua lên để dễ kích hoạt Game Over
 const DROP_COOLDOWN = 500
 
-// Physics settings (like the reference game)
 const FRICTION = {
-  friction: 0.005,      // Slippery but not ice
+  friction: 0.005,
   frictionStatic: 0.005,
   frictionAir: 0,
-  restitution: 0.5,     // Much bouncier! (Old was 0.1) - This creates chaos
+  restitution: 0.5,
 }
 
-// Fruit configurations with images (Scaled up for 900px width - EVEN BIGGER!)
 const FRUITS = [
   { level: 1, image: imgCherry, radius: 32, name: 'Cherry', scoreValue: 1 },
   { level: 2, image: imgGrape, radius: 44, name: 'Grape', scoreValue: 3 },
@@ -53,18 +43,15 @@ const FRUITS = [
   { level: 10, image: imgWatermelon, radius: 195, name: 'Watermelon', scoreValue: 55 },
 ]
 
-// Helper to get random fruit index (0-4) like original Suika
-// Cherry (30%), Grape (25%), Orange (20%), Lemon (15%), Apple (10%)
 const getRandomDroppableFruitIndex = () => {
   const rand = Math.random()
-  if (rand < 0.30) return 0 // Cherry
-  if (rand < 0.55) return 1 // Grape
-  if (rand < 0.75) return 2 // Orange
-  if (rand < 0.90) return 3 // Lemon
-  return 4                  // Apple (The chaos maker)
+  if (rand < 0.30) return 0
+  if (rand < 0.55) return 1
+  if (rand < 0.75) return 2
+  if (rand < 0.90) return 3
+  return 4
 }
 
-// Game states
 const GameState = {
   MENU: 0,
   READY: 1,
@@ -97,7 +84,9 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
   const currentFruitIndexRef = useRef(0)
   const nextFruitIndexRef = useRef(0)
   
-  // State for assets loading
+  // Game Dimensions State (useRef to access inside closures without re-render)
+  const gameDimensions = useRef({ width: 900, height: 800, loseHeight: 150, scale: 1 });
+
   const [areAssetsLoaded, setAreAssetsLoaded] = useState(false)
   const fruitImageElements = useRef<HTMLImageElement[]>([])
 
@@ -111,7 +100,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
   
   const fruitsMergedRef = useRef<number[]>(Array(FRUITS.length).fill(0))
 
-  // Pre-load all fruit images before starting the game
   useEffect(() => {
     const images = FRUITS.map(f => {
       const img = new Image()
@@ -128,22 +116,18 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
           setAreAssetsLoaded(true)
         }
       }
-      // Handle error case as well, maybe with a fallback
       img.onerror = () => {
         console.error("Failed to load an image.")
-        // Potentially handle error, for now, we'll just log it
       }
     })
   }, [])
 
-  // Notify parent component about game state
   useEffect(() => {
     if (onGameStateChange) {
       onGameStateChange(gameStarted && !isGameOver)
     }
   }, [gameStarted, isGameOver, onGameStateChange])
 
-  // Calculate seeds based on fruit level
   const calculateSeeds = useCallback((level: number): number => {
     if (level <= 3) return 0
     if (level <= 5) return level - 3
@@ -151,7 +135,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     return level
   }, [])
 
-  // Calculate score from merges
   const calculateScore = useCallback(() => {
     const newScore = fruitsMergedRef.current.reduce((total, count, sizeIndex) => {
       return total + (FRUITS[sizeIndex]?.scoreValue || 0) * count
@@ -159,10 +142,13 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     setScore(newScore)
   }, [])
 
-  // Generate a fruit body with emoji rendering
   const generateFruitBody = useCallback((x: number, y: number, sizeIndex: number, extraConfig: object = {}): FruitBody => {
     const fruit = FRUITS[sizeIndex]
-    const body: FruitBody = Matter.Bodies.circle(x, y, fruit.radius, {
+    // Scale fruit radius based on game width scaling if needed
+    // For now, keep fruits same size for fun, unless screen is VERY small
+    const scale = gameDimensions.current.scale;
+    
+    const body: FruitBody = Matter.Bodies.circle(x, y, fruit.radius * scale, {
       ...FRICTION,
       ...extraConfig,
       label: 'fruit',
@@ -176,14 +162,12 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     return body
   }, [])
 
-  // Set next fruit size (weighted random 0-2)
   const setNextFruitSize = useCallback(() => {
     const next = getRandomDroppableFruitIndex()
     nextFruitIndexRef.current = next
     setDisplayNextFruit(next)
   }, [])
 
-  // Mint seeds on-chain - SPONSORED TRANSACTION (no wallet popup!)
   const mintSeedsOnChain = async () => {
     if (!account?.address) {
       setTxStatus('❌ Connect wallet first')
@@ -200,10 +184,8 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     setIsPending(true)
     
     try {
-      // Multiply by 10^9 for 9 decimals
       const amountWithDecimals = BigInt(seedsPending) * SEED_DECIMALS
       
-      // Use sponsored transaction - NO WALLET POPUP!
       const result = await mintSeedsToUser(
         account.address,
         amountWithDecimals,
@@ -211,7 +193,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         SEED_ADMIN_CAP
       )
       
-      // Wait for transaction to be confirmed
       await sponsorClient.waitForTransaction({ digest: result.digest })
       
       const minted = seedsPending
@@ -220,7 +201,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       setTxStatus(`🎉 Minted ${minted} seeds!`)
       setSeedsPending(0)
       
-      // Tự động reset game sau khi mint thành công để người chơi bắt đầu ván mới
       setTimeout(() => {
         resetGame()
         setTxStatus('')
@@ -234,7 +214,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     }
   }
 
-  // Lose game handler
   const loseGame = useCallback(() => {
     gameStateRef.current = GameState.LOSE
     setIsGameOver(true)
@@ -243,10 +222,32 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     }
   }, [])
 
-  // Initialize Matter.js engine
   useEffect(() => {
-    // Only run setup after all images have been loaded
     if (!canvasRef.current || !areAssetsLoaded) return
+
+    // --- RESPONSIVE GAME SIZE LOGIC ---
+    let width = 900;
+    let height = 800;
+    let scale = 1;
+
+    if (window.innerWidth < 768) {
+        // Mobile Logic
+        // Width: 95% of screen width (max 400px to keep it playable)
+        width = Math.min(window.innerWidth * 0.95, 450); 
+        // Height: 65% of screen height
+        height = window.innerHeight * 0.65;
+        if (height < 500) height = 500;
+        
+        // Scale fruits slightly down on small screens to fit more
+        scale = Math.min(1, width / 400); 
+    }
+
+    gameDimensions.current = {
+        width,
+        height,
+        loseHeight: height * 0.2, // 20% from top
+        scale
+    };
 
     const engine = Matter.Engine.create()
     engineRef.current = engine
@@ -255,53 +256,52 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       canvas: canvasRef.current,
       engine: engine,
       options: {
-        width: GAME_WIDTH,
-        height: GAME_HEIGHT,
+        width: width,
+        height: height,
         wireframes: false,
-        background: '#e8f5e9', // Xanh lá sáng rực rỡ
+        background: '#e8f5e9',
+        pixelRatio: window.devicePixelRatio
       },
     })
     renderRef.current = render
 
-    // Wall properties
+    // Adjust walls to new width/height
     const wallProps = {
       isStatic: true,
       render: { fillStyle: '#FFEEDB' },
       ...FRICTION,
     }
 
-    // Create walls - left, right, bottom
     const walls = [
       // Bottom
       Matter.Bodies.rectangle(
-        GAME_WIDTH / 2, 
-        GAME_HEIGHT + WALL_THICKNESS / 2, 
-        GAME_WIDTH + WALL_THICKNESS * 2, 
+        width / 2, 
+        height + WALL_THICKNESS / 2, 
+        width + WALL_THICKNESS * 2, 
         WALL_THICKNESS, 
         { ...wallProps, label: 'wall' }
       ),
       // Left
       Matter.Bodies.rectangle(
         -WALL_THICKNESS / 2, 
-        GAME_HEIGHT / 2, 
+        height / 2, 
         WALL_THICKNESS, 
-        GAME_HEIGHT, 
+        height, 
         { ...wallProps, label: 'wall' }
       ),
       // Right
       Matter.Bodies.rectangle(
-        GAME_WIDTH + WALL_THICKNESS / 2, 
-        GAME_HEIGHT / 2, 
+        width + WALL_THICKNESS / 2, 
+        height / 2, 
         WALL_THICKNESS, 
-        GAME_HEIGHT, 
+        height, 
         { ...wallProps, label: 'wall' }
       ),
     ]
 
     Matter.Composite.add(engine.world, walls)
 
-    // Game over line (visual indicator)
-    const gameOverLine = Matter.Bodies.rectangle(GAME_WIDTH / 2, LOSE_HEIGHT, GAME_WIDTH, 2, {
+    const gameOverLine = Matter.Bodies.rectangle(width / 2, gameDimensions.current.loseHeight, width, 2, {
       isStatic: true,
       isSensor: true,
       render: { fillStyle: 'rgba(231, 76, 60, 0.5)' },
@@ -309,17 +309,14 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     })
     Matter.Composite.add(engine.world, gameOverLine)
 
-    // Collision detection for merging
     Matter.Events.on(engine, 'collisionStart', (event) => {
       for (const pair of event.pairs) {
         const bodyA = pair.bodyA as FruitBody
         const bodyB = pair.bodyB as FruitBody
 
-        // Skip walls and sensors
         if (bodyA.isStatic || bodyB.isStatic) continue
         if (bodyA.label !== 'fruit' || bodyB.label !== 'fruit') continue
 
-        // Check if same size fruits
         if (bodyA.sizeIndex === undefined || bodyB.sizeIndex === undefined) continue
         if (bodyA.sizeIndex !== bodyB.sizeIndex) continue
         if (bodyA.popped || bodyB.popped) continue
@@ -327,31 +324,24 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         const currentSize = bodyA.sizeIndex
         let newSize = currentSize + 1
 
-        // If max size, wrap to smallest
         if (currentSize >= FRUITS.length - 1) {
           newSize = 0
         }
 
-        // Mark as popped
         bodyA.popped = true
         bodyB.popped = true
 
-        // Track merge for scoring
         fruitsMergedRef.current[currentSize] += 1
 
-        // Calculate merge position
         const midX = (bodyA.position.x + bodyB.position.x) / 2
         const midY = (bodyA.position.y + bodyB.position.y) / 2
 
-        // Remove old fruits
         Matter.Composite.remove(engine.world, bodyA)
         Matter.Composite.remove(engine.world, bodyB)
 
-        // Create new bigger fruit
         const newFruit = generateFruitBody(midX, midY, newSize)
         Matter.Composite.add(engine.world, newFruit)
 
-        // Update score and seeds
         calculateScore()
         const seeds = calculateSeeds(newSize + 1)
         if (seeds > 0) {
@@ -360,7 +350,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       }
     })
 
-    // Check for game over - fruits staying above lose line for 2+ seconds
     Matter.Events.on(engine, 'afterUpdate', () => {
       if (gameStateRef.current === GameState.LOSE) return
       
@@ -370,12 +359,10 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         const fruitBody = body as FruitBody
         if (fruitBody.label !== 'fruit' || fruitBody.isStatic) continue
         
-        // Must have been dropped at least 2 seconds ago
         const timeSinceDrop = now - (fruitBody.dropTime || now)
         if (timeSinceDrop < 2000) continue
         
-        // Check if fruit is above lose line and has settled
-        if (fruitBody.position.y < LOSE_HEIGHT && 
+        if (fruitBody.position.y < gameDimensions.current.loseHeight && 
             Math.abs(fruitBody.velocity.y) < 0.5 &&
             Math.abs(fruitBody.velocity.x) < 0.5) {
           loseGame()
@@ -384,13 +371,11 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       }
     })
 
-    // Runner
     const runner = Matter.Runner.create()
     runnerRef.current = runner
     Matter.Runner.run(runner, engine)
     Matter.Render.run(render)
 
-    // Custom image rendering
     const fruitImages: HTMLImageElement[] = FRUITS.map(f => {
       const img = new Image()
       img.src = f.image
@@ -415,14 +400,13 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         context.translate(fruitBody.position.x, fruitBody.position.y)
         context.rotate(fruitBody.angle)
         
-        // Draw image centered on body
-        const size = fruit.radius * 2
-        context.drawImage(img, -fruit.radius, -fruit.radius, size, size)
+        const scale = gameDimensions.current.scale
+        const size = fruit.radius * 2 * scale
+        context.drawImage(img, -fruit.radius * scale, -fruit.radius * scale, size, size)
         context.restore()
       }
     })
 
-    // Initialize first fruit
     const initialFruit = getRandomDroppableFruitIndex()
     currentFruitIndexRef.current = initialFruit
     setDisplayCurrentFruit(initialFruit)
@@ -438,14 +422,12 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     }
   }, [generateFruitBody, calculateScore, calculateSeeds, loseGame, areAssetsLoaded])
 
-  // Start game
   const startGame = useCallback(() => {
     if (!engineRef.current || !areAssetsLoaded) return
 
     setGameStarted(true)
     setIsGameOver(false)
     setScore(0)
-    // KHÔNG reset seedsPending ở đây để người chơi có thể tích lũy hạt
     fruitsMergedRef.current = Array(FRUITS.length).fill(0)
     gameStateRef.current = GameState.READY
 
@@ -453,13 +435,12 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       runnerRef.current.enabled = true
     }
 
-    // Force canvas resize just in case
+    // Resize canvas if needed
     if (renderRef.current && canvasRef.current) {
-        renderRef.current.canvas.width = GAME_WIDTH;
-        renderRef.current.canvas.height = GAME_HEIGHT;
+        renderRef.current.canvas.width = gameDimensions.current.width;
+        renderRef.current.canvas.height = gameDimensions.current.height;
     }
 
-    // Clear existing bodies (fruits)
     const bodies = Matter.Composite.allBodies(engineRef.current.world)
     bodies.forEach(body => {
       if (body.label === 'fruit') {
@@ -467,12 +448,10 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       }
     })
 
-    // Remove old preview if exists
     if (previewBallRef.current) {
       Matter.Composite.remove(engineRef.current.world, previewBallRef.current)
     }
 
-    // Create preview ball
     const initialFruit = getRandomDroppableFruitIndex()
     currentFruitIndexRef.current = initialFruit
     setDisplayCurrentFruit(initialFruit)
@@ -481,7 +460,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     nextFruitIndexRef.current = nextFruit
     setDisplayNextFruit(nextFruit)
 
-    const preview = generateFruitBody(GAME_WIDTH / 2, PREVIEW_BALL_Y, initialFruit, {
+    const preview = generateFruitBody(gameDimensions.current.width / 2, PREVIEW_BALL_Y, initialFruit, {
       isStatic: true,
       collisionFilter: { mask: 0x0000 },
     })
@@ -489,11 +468,9 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     Matter.Composite.add(engineRef.current.world, preview)
   }, [generateFruitBody, areAssetsLoaded])
 
-  // Reset game
   const resetGame = useCallback(() => {
     if (!engineRef.current) return
 
-    // Remove all fruits
     const bodies = Matter.Composite.allBodies(engineRef.current.world)
     bodies.forEach(body => {
       if (body.label === 'fruit') {
@@ -505,7 +482,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     startGame()
   }, [startGame])
 
-  // Handle mouse move for preview ball
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameStarted || isGameOver || !previewBallRef.current) return
     if (gameStateRef.current !== GameState.READY) return
@@ -513,25 +489,23 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
 
-    // Calculate scale factor in case canvas is resized by CSS
-    const scaleX = GAME_WIDTH / rect.width
-    
-    // Get relative X position and scale it up to game coordinates
+    // Scale mouse position to game coordinates
+    const scaleX = gameDimensions.current.width / rect.width
     const relativeX = (e.clientX - rect.left) * scaleX
 
-    const currentRadius = FRUITS[currentFruitIndexRef.current].radius
+    const scale = gameDimensions.current.scale
+    const currentRadius = FRUITS[currentFruitIndexRef.current].radius * scale
+    
     const x = Math.max(
       currentRadius + WALL_THICKNESS,
-      Math.min(GAME_WIDTH - currentRadius - WALL_THICKNESS, relativeX)
+      Math.min(gameDimensions.current.width - currentRadius - WALL_THICKNESS, relativeX)
     )
 
     Matter.Body.setPosition(previewBallRef.current, { x, y: PREVIEW_BALL_Y })
   }, [gameStarted, isGameOver])
 
-  // Handle click to drop fruit
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameStarted) {
-      // If game hasn't started, don't drop fruit on click (use the button instead)
       return
     }
 
@@ -541,36 +515,32 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
 
-    // Calculate scale factor
-    const scaleX = GAME_WIDTH / rect.width
+    const scaleX = gameDimensions.current.width / rect.width
     const relativeX = (e.clientX - rect.left) * scaleX
 
-    const currentRadius = FRUITS[currentFruitIndexRef.current].radius
+    const scale = gameDimensions.current.scale
+    const currentRadius = FRUITS[currentFruitIndexRef.current].radius * scale
+    
     const x = Math.max(
       currentRadius + WALL_THICKNESS,
-      Math.min(GAME_WIDTH - currentRadius - WALL_THICKNESS, relativeX)
+      Math.min(gameDimensions.current.width - currentRadius - WALL_THICKNESS, relativeX)
     )
 
     gameStateRef.current = GameState.DROP
 
-    // Remove preview ball
     Matter.Composite.remove(engineRef.current.world, previewBallRef.current)
     previewBallRef.current = null
 
-    // Drop actual fruit
     const droppedFruit = generateFruitBody(x, PREVIEW_BALL_Y, currentFruitIndexRef.current)
     Matter.Composite.add(engineRef.current.world, droppedFruit)
 
-    // Prepare next fruit
     currentFruitIndexRef.current = nextFruitIndexRef.current
     setDisplayCurrentFruit(nextFruitIndexRef.current)
     setNextFruitSize()
 
-    // Cooldown before next drop
     setTimeout(() => {
       if (gameStateRef.current === GameState.DROP && engineRef.current) {
-        // Create new preview ball
-        const preview = generateFruitBody(GAME_WIDTH / 2, PREVIEW_BALL_Y, currentFruitIndexRef.current, {
+        const preview = generateFruitBody(gameDimensions.current.width / 2, PREVIEW_BALL_Y, currentFruitIndexRef.current, {
           isStatic: true,
           collisionFilter: { mask: 0x0000 },
         })
@@ -583,7 +553,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
 
   return (
     <div className="fruit-game" ref={containerRef}>
-      {/* Transaction Status */}
       {txStatus && (
         <div className="tx-status">
           {isPending && <span className="spinner">⏳</span>}
@@ -591,90 +560,95 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         </div>
       )}
 
-      {/* Stats Panel */}
-      <div className="game-stats">
-        <div className="stat">
-          <span className="stat-label">Score</span>
-          <span className="stat-value">{score}</span>
-        </div>
-        <div className="stat seeds">
-          <span className="stat-label">🌱 Seeds</span>
-          <span className="stat-value">{seedsPending}</span>
-        </div>
-        {gameStarted && !isGameOver && (
-                  <div className="stat next">
-                    <span className="stat-label">Next</span>
-                    <div className="next-fruit-display">
-                      <img src={FRUITS[displayNextFruit].image} alt="Next fruit" className="next-fruit-img" />
-                    </div>
-                  </div>
-                )}
-              </div>
-          
-              {/* Game Canvas */}
-              <div className="canvas-container">
-                <canvas
-                  ref={canvasRef}
-                  onMouseMove={handleMouseMove}
-                  onClick={handleClick}
-                  style={{ cursor: (gameStarted && !isGameOver && gameStateRef.current === GameState.READY) ? 'pointer' : 'default' }}
-                />
-                
-                        {/* Start Screen */}
-                        {!gameStarted && (
-                          <div className="game-overlay start-screen">
-                            <img src={imgWatermelon} alt="Watery Logo" className="start-logo" style={{ width: '120px', marginBottom: '1rem' }} />
-                            <h2 style={{ fontSize: '3rem', letterSpacing: '4px' }}>WATERY</h2>
-                            {!areAssetsLoaded ? (
-                              <p>Loading Assets...</p>
-                            ) : (
-                              <>
-                                <div className="instructions">
-                                  <p>🍎 Drop fruits to merge</p>
-                                  <p>🌱 Same fruits = bigger fruit + seeds</p>
-                                  <p>🌾 Mint seeds on-chain when ready</p>
-                                </div>
-                                <button type="button" className="btn-restart" style={{ fontSize: '1.5rem', padding: '1rem 2.5rem', marginTop: '1rem' }} onClick={startGame}>
-                                  ▶ PLAY NOW
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}        {/* Game Over */}
-        {isGameOver && (
-          <div className="game-overlay game-over">
-            <h2>💥 Game Over!</h2>
-            <p className="score-display">Score: {score}</p>
-            {seedsPending > 0 && (
-              <div className="harvest-prompt">
-                <p className="seeds-earned">🌱 {seedsPending} seeds earned!</p>
-                {account ? (
-                  <button 
-                    className="btn-harvest" 
-                    onClick={mintSeedsOnChain} 
-                    disabled={isPending}
-                  >
-                    {isPending ? '⏳ Minting...' : '🌾 Mint Seeds On-Chain'}
-                  </button>
-                ) : (
-                  <p className="connect-hint">Connect wallet to mint seeds</p>
-                )}
-              </div>
-            )}
-            <button type="button" className="btn-restart" onClick={resetGame}>
-              🔄 Play Again
-            </button>
+      {/* Main Game Layout */}
+      <div className="game-main-layout">
+        
+        {/* Vertical Game Stats */}
+        <div className="game-stats-vertical">
+          <div className="v-stat">
+            <span className="v-stat-label">SCORE</span>
+            <span className="v-stat-value">{score}</span>
           </div>
-        )}
+          
+          <div className="v-stat">
+            <span className="v-stat-label">🌱 SEEDS</span>
+            <span className="v-stat-value">{seedsPending}</span>
+          </div>
+
+          {gameStarted && !isGameOver && (
+            <div className="v-stat next-preview">
+              <span className="v-stat-label">NEXT</span>
+              <div className="next-preview-box">
+                <img src={FRUITS[displayNextFruit].image} alt="Next fruit" className="next-preview-img" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Canvas Area */}
+        <div className="canvas-container">
+          <canvas
+            ref={canvasRef}
+            onMouseMove={handleMouseMove}
+            onClick={handleClick}
+            style={{ cursor: (gameStarted && !isGameOver && gameStateRef.current === GameState.READY) ? 'pointer' : 'default' }}
+          />
+          
+          {!gameStarted && (
+            <div className="game-overlay start-screen">
+              <img src={imgWatermelon} alt="Watery Logo" className="start-logo" style={{ width: '120px', marginBottom: '1rem' }} />
+              <h2 style={{ fontSize: '3rem', letterSpacing: '4px' }}>WATERY</h2>
+              {!areAssetsLoaded ? (
+                <p>Loading Assets...</p>
+              ) : (
+                <>
+                  <div className="instructions">
+                    <p>🍎 Drop fruits to merge</p>
+                    <p>🌱 Same fruits = bigger fruit + seeds</p>
+                    <p>🌾 Mint seeds on-chain when ready</p>
+                  </div>
+                  <button type="button" className="btn-restart" style={{ fontSize: '1.5rem', padding: '1rem 2.5rem', marginTop: '1rem' }} onClick={startGame}>
+                    ▶ PLAY NOW
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {isGameOver && (
+            <div className="game-overlay game-over">
+              <h2>💥 Game Over!</h2>
+              <p className="score-display">Score: {score}</p>
+              {seedsPending > 0 && (
+                <div className="harvest-prompt">
+                  <p className="seeds-earned">🌱 {seedsPending} seeds earned!</p>
+                  {account ? (
+                    <button 
+                      className="btn-harvest" 
+                      onClick={mintSeedsOnChain} 
+                      disabled={isPending}
+                    >
+                      {isPending ? '⏳ Minting...' : '🌾 Mint Seeds On-Chain'}
+                    </button>
+                  ) : (
+                    <p className="connect-hint">Connect wallet to mint seeds</p>
+                  )}
+                </div>
+              )}
+              <button type="button" className="btn-restart" onClick={resetGame}>
+                🔄 Play Again
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Mint Button - Available during gameplay */}
       {gameStarted && !isGameOver && seedsPending > 0 && (
         <div className="mint-during-game">
           {account ? (
             <button 
               className="btn-mint" 
-              onClick={mintSeedsOnChain}
+              onClick={mintSeedsOnChain} 
               disabled={isPending}
             >
               {isPending ? '⏳ Minting...' : `🌱 Mint ${seedsPending} Seeds`}
@@ -685,7 +659,6 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         </div>
       )}
 
-      {/* Fruit Legend */}
       <div className="fruit-legend">
         {FRUITS.slice(0, 5).map((f) => (
           <img key={f.level} src={f.image} alt={f.name} className="fruit-img-legend" title={`${f.name} (Lv${f.level})`} />
@@ -693,6 +666,141 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
         <span>→</span>
         <img src={FRUITS[9].image} alt="Watermelon" className="fruit-img-legend" title="Watermelon (Lv10)" />
       </div>
+
+      <style>{`
+        .fruit-game {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          gap: 20px;
+        }
+
+        .game-main-layout {
+          display: flex;
+          flex-direction: row;
+          align-items: flex-start;
+          gap: 20px;
+          margin-top: 20px;
+          padding-right: 80px; 
+        }
+
+        .game-stats-vertical {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+          background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          padding: 20px;
+          border-radius: 20px;
+          border: 3px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          min-width: 120px;
+        }
+
+        .v-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .v-stat-label {
+          font-size: 0.75rem;
+          font-weight: 900;
+          color: #a5b4fc;
+          letter-spacing: 1px;
+          margin-bottom: 5px;
+        }
+
+        .v-stat-value {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #fff;
+          text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+        }
+
+        .next-preview-box {
+          width: 80px;
+          height: 80px;
+          background: rgba(0,0,0,0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 10px;
+          border: 3px solid #fff;
+          box-shadow: 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        .next-preview-img {
+          width: 70%;
+          height: 70%;
+          object-fit: contain;
+        }
+
+        .canvas-container {
+          position: relative;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+          background: #e8f5e9;
+          border: 8px solid #34495e;
+        }
+        
+        .canvas-container canvas {
+          /* Scale thông minh cho mobile */
+          height: 100% !important; 
+          width: auto !important; 
+          max-width: 100%; 
+          object-fit: contain; 
+        }
+
+        /* RESPONSIVE MOBILE */
+        @media (max-width: 768px) {
+          .game-main-layout {
+            flex-direction: column;
+            align-items: center;
+            padding-right: 0; 
+            width: 100%;
+            gap: 15px;
+          }
+
+          .game-stats-vertical {
+            flex-direction: row; 
+            width: 95%;
+            justify-content: space-around;
+            padding: 10px;
+            min-width: unset;
+          }
+
+          .v-stat {
+            justify-content: center;
+          }
+          
+          .v-stat-value {
+            font-size: 1.4rem;
+          }
+
+          .next-preview-box {
+            width: 50px;
+            height: 50px;
+            margin-top: 0;
+          }
+
+          .canvas-container {
+            width: 95%;
+            height: 65vh; 
+            min-height: 500px;
+          }
+          
+          .canvas-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain; /* Quay về contain để đảm bảo thấy hết game */
+          }
+        }
+      `}</style>
     </div>
   )
 }
