@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
+import { useActivityLog } from '../hooks/useActivityLog'
 
 // Fruit Assets
 import imgCherry from '../assets/fruit/Cherry.png'
@@ -61,6 +62,7 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending: isTxPending } = useSponsoredTransaction()
+  const { addLog } = useActivityLog()
   
   const [fruits, setFruits] = useState<InventoryFruit[]>([])
   const [maxSlots, setMaxSlots] = useState(20)
@@ -160,7 +162,8 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
 
   const handleBatchMint = async () => {
     if (!account?.address || !inventoryId || selectedIndices.length === 0) return;
-    setTxStatus(`💎 Minting ${selectedIndices.length} NFTs...`);
+    const mintCount = selectedIndices.length;
+    setTxStatus(`💎 Minting ${mintCount} NFTs...`);
     try {
       const tx = new Transaction();
       const sortedIndices = [...selectedIndices].sort((a, b) => b - a);
@@ -170,7 +173,8 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
       signAndExecute({ transaction: tx }, {
         onSuccess: async (result) => {
           await suiClient.waitForTransaction({ digest: result.digest });
-          setTxStatus(`✅ Successfully minted ${selectedIndices.length} NFTs!`);
+          setTxStatus(`✅ Successfully minted ${mintCount} NFTs!`);
+          addLog(`Minted ${mintCount} fruit NFTs!`, 'success', '💎');
           onUpdate?.(); setIsSelectionMode(false); setSelectedIndices([]); setTimeout(() => setTxStatus(''), 3000);
         },
         onError: (error) => { setTxStatus('❌ Mint Failed: ' + error.message); setTimeout(() => setTxStatus(''), 5000); }
@@ -197,7 +201,7 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
     const [payment] = tx.splitCoins(tx.object(seedCoins.data[0].coinObjectId), [tx.pure.u64(upgradeCost * SEED_DECIMALS)])
     tx.moveCall({ target: `${PACKAGE_ID}::player::upgrade_inventory`, arguments: [tx.object(playerObj.data.objectId), tx.object(inventoryId), payment, tx.object(SEED_ADMIN_CAP)] })
     
-    signAndExecute({ transaction: tx }, { onSuccess: async (result) => { await suiClient.waitForTransaction({ digest: result.digest }); onUpdate?.(); setTxStatus('✅ Upgraded!'); setTimeout(() => setTxStatus(''), 3000); } })
+    signAndExecute({ transaction: tx }, { onSuccess: async (result) => { await suiClient.waitForTransaction({ digest: result.digest }); addLog(`Inventory upgraded (+${INVENTORY_SLOTS_PER_UPGRADE} slots)`, 'success', '⬆️'); onUpdate?.(); setTxStatus('✅ Upgraded!'); setTimeout(() => setTxStatus(''), 3000); } })
   }
 
   const isFull = fruits.length >= maxSlots

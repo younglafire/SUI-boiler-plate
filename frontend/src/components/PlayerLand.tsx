@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useSponsoredTransaction, mintSeedsToUser, sponsorClient } from '../hooks/useSponsoredTransaction'
+import { useActivityLog } from '../hooks/useActivityLog'
 
 // Soil Assets
 import chauDat from '../assets/Chậu đất.svg'
@@ -109,6 +110,7 @@ export default function PlayerLand({
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
+  const { addLog } = useActivityLog()
   
   const [allLands, setAllLands] = useState<LandInfo[]>([])
   const [activeLandId, setActiveLandId] = useState<string | null>(initialLandId)
@@ -226,6 +228,7 @@ export default function PlayerLand({
       onSuccess: async (result) => {
         await suiClient.waitForTransaction({ digest: result.digest })
         setTxStatus('🎉 Land created!')
+        addLog('First land created!', 'success', '🏡')
         onDataChanged?.()
         setTimeout(() => setTxStatus(''), 2000)
       },
@@ -251,6 +254,7 @@ export default function PlayerLand({
       onSuccess: async (result) => {
         await suiClient.waitForTransaction({ digest: result.digest })
         setTxStatus('🎉 New land purchased!')
+        addLog(`Purchased new land for ${cost} seeds`, 'success', '🏡')
         fetchAllLands(); onDataChanged?.()
         setTimeout(() => setTxStatus(''), 2000)
       },
@@ -276,6 +280,7 @@ export default function PlayerLand({
       onSuccess: async (result) => {
         await suiClient.waitForTransaction({ digest: result.digest })
         setTxStatus('🎉 Land upgraded!')
+        addLog(`Land upgraded to level ${landLevel + 1}!`, 'success', '⬆️')
         fetchLandData(); onDataChanged?.()
         setTimeout(() => setTxStatus(''), 2000)
       },
@@ -292,6 +297,7 @@ export default function PlayerLand({
       const result = await mintSeedsToUser(account.address, amountWithDecimals, PACKAGE_ID, SEED_ADMIN_CAP)
       await sponsorClient.waitForTransaction({ digest: result.digest })
       setTxStatus('🎉 Got 1000 seeds!')
+      addLog('Received 1000 test seeds!', 'success', '🎁')
       if (onDataChanged) onDataChanged()
       setTimeout(() => setTxStatus(''), 2000)
     } catch (e: any) {
@@ -374,6 +380,7 @@ export default function PlayerLand({
         onSuccess: async (result) => {
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus('🚿 Watered! (-25% time)')
+          addLog(`Watered slot ${slotIndex + 1} (-25% grow time)`, 'success', '🚿')
           setSlotSpeedBoosts(prev => {
             const slot = slots.find(s => s.index === slotIndex)
             if (!slot?.fruit) return prev
@@ -423,6 +430,7 @@ export default function PlayerLand({
         onSuccess: async (result) => {
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus('🧪 Fertilized! (-50% time)')
+          addLog(`Fertilized slot ${slotIndex + 1} (-50% grow time)`, 'success', '🧪')
           setSlotSpeedBoosts(prev => {
             const slot = slots.find(s => s.index === slotIndex)
             if (!slot?.fruit) return prev
@@ -470,6 +478,7 @@ export default function PlayerLand({
         onSuccess: async (result) => {
           await suiClient.waitForTransaction({ digest: result.digest })
           setTxStatus('🪓 Plant removed!')
+          addLog(`Removed plant from slot ${slotIndex + 1}`, 'success', '🪓')
           setSlots(prev => prev.map(s => s.index === slotIndex ? { ...s, fruit: null } : s))
           fetchLandData()
           if (onDataChanged) onDataChanged()
@@ -508,6 +517,7 @@ export default function PlayerLand({
       onSuccess: async (result) => {
         await suiClient.waitForTransaction({ digest: result.digest })
         setTxStatus('🌳 Seed planted!')
+        addLog(`Planted ${seedsToPlant} seeds in slot ${(plantSlotIndex ?? 0) + 1}`, 'success', '🌱')
         fetchLandData(); onDataChanged?.()
         setTimeout(() => setTxStatus(''), 3000)
       },
@@ -567,6 +577,7 @@ export default function PlayerLand({
           onSuccess: async (result) => {
             await suiClient.waitForTransaction({ digest: result.digest })
             setTxStatus('🌳 Planted All Successfully!')
+            addLog(`Planted ${emptyCount} slots (${totalCost} seeds total)`, 'success', '🌱')
             fetchLandData()
             if (onDataChanged) onDataChanged()
             setTimeout(() => setTxStatus(''), 3000)
@@ -608,6 +619,7 @@ export default function PlayerLand({
       onSuccess: async (result) => {
         await suiClient.waitForTransaction({ digest: result.digest })
         setTxStatus('🍎 Fruits harvested!')
+        addLog(`Harvested ${readyCount} fruits!`, 'success', '🍎')
         fetchLandData(); fetchInventoryData(); onDataChanged?.()
         setTimeout(() => setTxStatus(''), 3000)
       },

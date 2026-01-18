@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useCurrentAccount } from '@mysten/dapp-kit'
 import Matter from 'matter-js'
 import { mintSeedsToUser, sponsorClient } from '../hooks/useSponsoredTransaction'
+import { useActivityLog } from '../hooks/useActivityLog'
 
 // Fruit Assets
 import imgCherry from '../assets/fruit/Cherry.png'
@@ -73,6 +74,7 @@ interface FruitGameProps {
 export default function FruitGame({ onSeedsHarvested, onGameStateChange }: FruitGameProps) {
   const account = useCurrentAccount()
   const [isPending, setIsPending] = useState(false)
+  const { addLog } = useActivityLog()
   
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -199,6 +201,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
       onSeedsHarvested?.(minted)
       
       setTxStatus(`🎉 Minted ${minted} seeds!`)
+      addLog(`Minted ${minted} seeds from game!`, 'success', '🌱')
       setSeedsPending(0)
       
       setTimeout(() => {
@@ -430,6 +433,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     setScore(0)
     fruitsMergedRef.current = Array(FRUITS.length).fill(0)
     gameStateRef.current = GameState.READY
+    addLog('Game started! Drop fruits to merge', 'info', '🎮')
 
     if (runnerRef.current) {
       runnerRef.current.enabled = true
@@ -466,7 +470,7 @@ export default function FruitGame({ onSeedsHarvested, onGameStateChange }: Fruit
     })
     previewBallRef.current = preview
     Matter.Composite.add(engineRef.current.world, preview)
-  }, [generateFruitBody, areAssetsLoaded])
+  }, [generateFruitBody, areAssetsLoaded, addLog])
 
   const resetGame = useCallback(() => {
     if (!engineRef.current) return

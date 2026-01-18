@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useSponsoredTransaction } from '../hooks/useSponsoredTransaction'
+import { useActivityLog } from '../hooks/useActivityLog'
 
 const PACKAGE_ID = '0x599868f3b4e190173c1ec1d3bd2738239461d617f74fe136a1a2f021fdf02503'
 const CLOCK_OBJECT = '0x6'
@@ -44,6 +45,7 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
+  const { addLog } = useActivityLog()
 
   const [inventoryFruits, setInventoryFruits] = useState<InventoryFruit[]>([])
   const [selectedFruitType, setSelectedFruitType] = useState<number | null>(null)
@@ -103,6 +105,7 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
   const handleMerge = async (fruitType: number, count: number) => {
     if (!inventoryId || !account) return
     setTxStatus('Merging...')
+    const fruitName = FRUITS.find(f => f.level === fruitType)?.name || 'Fruit'
     
     try {
       const tx = new Transaction()
@@ -124,6 +127,7 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
           onSuccess: async (result) => {
             await suiClient.waitForTransaction({ digest: result.digest })
             setTxStatus('Merge Successful! 🌱')
+            addLog(`Merged ${count * 10} ${fruitName}s into ${count} heavy fruit!`, 'success', '🔄')
             if (onUpdate) onUpdate()
             // Auto refresh via effect dep on txStatus
             setTimeout(() => setTxStatus(''), 3000)

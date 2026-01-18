@@ -8,6 +8,10 @@ import Inventory from './components/Inventory'
 import Market from './components/Market'
 import Leaderboard from './components/Leaderboard'
 import NFTCollection from './components/NFTCollection'
+import ActivityLog from './components/ActivityLog'
+
+// Import Activity Log Context
+import { ActivityLogProvider } from './hooks/useActivityLog'
 
 // Import bộ 9 file CSS Modular (Đảm bảo ní đã tạo các file này trong thư mục styles)
 import './styles/Base.css'
@@ -141,6 +145,7 @@ function App() {
      GIAO DIỆN JSX (VIẾT LẠI MỚI)
      =================================================== */
   return (
+    <ActivityLogProvider>
     <div className="app">
       {!account ? (
         /* 2. TRANG CHÀO MỪNG (Khi chưa Connect) */
@@ -308,7 +313,11 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Activity Log - Only show when logged in */}
+      {account && <ActivityLog />}
     </div>
+    </ActivityLogProvider>
   )
 }
 
