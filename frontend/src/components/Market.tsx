@@ -38,18 +38,25 @@ interface MarketProps {
   onUpdate?: () => void
   refreshTrigger?: number
   playerSeeds?: number
+  initialMergeFruitType?: number | null
+  mergeTrigger?: number
 }
 
-export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSeeds = 0 }: MarketProps) {
+export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSeeds = 0, initialMergeFruitType = null, mergeTrigger = 0 }: MarketProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending } = useSponsoredTransaction()
 
   const [inventoryFruits, setInventoryFruits] = useState<InventoryFruit[]>([])
-  const [selectedFruitType, setSelectedFruitType] = useState<number | null>(null)
   const [isMerchantModalOpen, setIsMerchantModalOpen] = useState(false)
   const [merchantTab, setMerchantTab] = useState<'merging' | 'buying'>('merging')
   const [txStatus, setTxStatus] = useState('')
+  
+  // States for fruit merge modal
+  const [showMergeModal, setShowMergeModal] = useState(false)
+  const [mergeFruitType, setMergeFruitType] = useState<number | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [mergedFruitResult, setMergedFruitResult] = useState<{ type: number; count: number } | null>(null)
 
   // Load inventory items
   useEffect(() => {
@@ -84,6 +91,15 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
     fetchInventory()
   }, [inventoryId, suiClient, txStatus, refreshTrigger]) // reload when tx completes
 
+  // Open merge modal when requested externally (from Inventory)
+  useEffect(() => {
+    if (initialMergeFruitType) {
+      setMergeFruitType(initialMergeFruitType)
+      setShowMergeModal(true)
+      setMerchantTab('merging')
+    }
+  }, [initialMergeFruitType, mergeTrigger])
+
   // Group fruits by type
   const groupedFruits = useMemo(() => {
     const counts: Record<number, number> = {}
@@ -96,8 +112,18 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
   const openMerchant = () => {
     setIsMerchantModalOpen(true)
     setMerchantTab('merging')
-    setSelectedFruitType(null)
     setTxStatus('')
+  }
+
+  // Handle clicking on a fruit card - open merge modal
+  const handleFruitClick = (fruitLevel: number) => {
+    setMergeFruitType(fruitLevel)
+    setShowMergeModal(true)
+  }
+
+  const closeMergeModal = () => {
+    setShowMergeModal(false)
+    setMergeFruitType(null)
   }
 
   const handleMerge = async (fruitType: number, count: number) => {
@@ -124,6 +150,10 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
           onSuccess: async (result) => {
             await suiClient.waitForTransaction({ digest: result.digest })
             setTxStatus('Merge Successful! 🌱')
+            // Show success modal with big fruit
+            setMergedFruitResult({ type: fruitType, count: count })
+            setShowMergeModal(false)
+            setShowSuccessModal(true)
             if (onUpdate) onUpdate()
             // Auto refresh via effect dep on txStatus
             setTimeout(() => setTxStatus(''), 3000)
@@ -206,7 +236,7 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
                     const canMerge = count >= 10
                     
                     return (
-                      <div key={fruit.level} className={`fruit-merge-card ${selectedFruitType === fruit.level ? 'selected' : ''}`} onClick={() => setSelectedFruitType(fruit.level)}>
+                      <div key={fruit.level} className={`fruit-merge-card ${canMerge ? 'can-merge' : ''}`} onClick={() => handleFruitClick(fruit.level)}>
                         <div className="fruit-icon">{fruit.emoji}</div>
                         <div className="fruit-info">
                           <span className="fruit-name">{fruit.name} (Lvl {fruit.level})</span>
@@ -214,41 +244,11 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
                             Owned: {count}
                           </span>
                         </div>
+                        {canMerge && <span className="merge-badge">✨ Ready!</span>}
                       </div>
                     )
                   })}
                 </div>
-
-                {selectedFruitType && (
-                  <div className="action-area">
-                    {(() => {
-                      const fruit = FRUITS.find(f => f.level === selectedFruitType)!
-                      const count = groupedFruits[selectedFruitType] || 0
-                      const maxMerges = Math.floor(count / 10)
-                      
-                      if (count < 10) {
-                         return (
-                             <div className="warning-box">
-                                 Not enough {fruit.name}s. You need 10 to merge (Have {count}).
-                             </div>
-                         )
-                      }
-
-                      return (
-                          <div className="merge-actions">
-                              <button className="base-btn" disabled={isPending} onClick={() => handleMerge(selectedFruitType, 1)}>
-                                  Merge 10 ➔ 1 Heavy {fruit.name}
-                              </button>
-                              {maxMerges > 1 && (
-                                  <button className="max-btn" disabled={isPending} onClick={() => handleMerge(selectedFruitType, maxMerges)}>
-                                      Merge All (x{maxMerges})
-                                  </button>
-                              )}
-                          </div>
-                      )
-                    })()}
-                  </div>
-                )}
               </>
             ) : (
               /* BUYING TAB - Tools Information */
@@ -305,6 +305,102 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
           </div>
         </div>
       )}
+
+      {/* Fruit Merge Modal - Shows when clicking a fruit */}
+      {showMergeModal && mergeFruitType && (() => {
+        const fruit = FRUITS.find(f => f.level === mergeFruitType)!
+        const count = groupedFruits[mergeFruitType] || 0
+        const canMerge = count >= 10
+        const maxMerges = Math.floor(count / 10)
+
+        return (
+          <div className="modal-overlay" onClick={closeMergeModal}>
+            <div className="merge-fruit-modal" onClick={e => e.stopPropagation()}>
+              <button className="close-btn" onClick={closeMergeModal}>×</button>
+              
+              <div className="merge-fruit-header">
+                <div className="big-fruit-icon">{fruit.emoji}</div>
+                <h3>{fruit.name}</h3>
+                <p className="fruit-level">Level {fruit.level}</p>
+              </div>
+
+              <div className="merge-fruit-stats">
+                <div className="stat-row">
+                  <span>Owned:</span>
+                  <span className={canMerge ? 'success' : 'warning'}>{count}</span>
+                </div>
+                <div className="stat-row">
+                  <span>Required to merge:</span>
+                  <span>10</span>
+                </div>
+              </div>
+
+              {!canMerge ? (
+                <div className="merge-not-enough">
+                  <div className="not-enough-icon">🚫</div>
+                  <p>Not enough {fruit.name}s to merge!</p>
+                  <p className="need-more">You need <strong>{10 - count} more</strong> to merge</p>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${(count / 10) * 100}%` }}></div>
+                  </div>
+                  <p className="progress-text">{count} / 10</p>
+                </div>
+              ) : (
+                <div className="merge-ready">
+                  <div className="ready-icon">✨</div>
+                  <p>Ready to merge!</p>
+                  <p className="merge-info">10 fruits → 1 Heavy {fruit.name} (50% weight preserved)</p>
+                  
+                  {txStatus && <div className="tx-status-inline">{txStatus}</div>}
+                  
+                  <div className="merge-buttons">
+                    <button 
+                      className="merge-btn primary" 
+                      disabled={isPending}
+                      onClick={() => handleMerge(mergeFruitType, 1)}
+                    >
+                      🔄 Merge 10 → 1
+                    </button>
+                    {maxMerges > 1 && (
+                      <button 
+                        className="merge-btn secondary" 
+                        disabled={isPending}
+                        onClick={() => handleMerge(mergeFruitType, maxMerges)}
+                      >
+                        ⚡ Merge All (x{maxMerges})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Success Modal - Shows the merged fruit result */}
+      {showSuccessModal && mergedFruitResult && (() => {
+        const fruit = FRUITS.find(f => f.level === mergedFruitResult.type)!
+        return (
+          <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
+            <div className="success-modal" onClick={e => e.stopPropagation()}>
+              <div className="success-confetti">🎉</div>
+              <div className="success-fruit-display">
+                <div className="giant-fruit">{fruit.emoji}</div>
+                <div className="success-glow"></div>
+              </div>
+              <h2>Merge Successful!</h2>
+              <p className="success-text">
+                You created <strong>{mergedFruitResult.count}</strong> Heavy {fruit.name}{mergedFruitResult.count > 1 ? 's' : ''}!
+              </p>
+              <p className="legendary-tip">✨ Keep merging to reach LEGENDARY rarity!</p>
+              <button className="success-close-btn" onClick={() => setShowSuccessModal(false)}>
+                Awesome! 🎊
+              </button>
+            </div>
+          </div>
+        )
+      })()}
       
       <style>{`
         .market-container {
@@ -636,6 +732,270 @@ export default function Market({ inventoryId, onUpdate, refreshTrigger, playerSe
         .shop-info-note p {
             margin: 0;
             color: #ffd700;
+        }
+        
+        /* Merge Badge on fruit cards */
+        .merge-badge {
+            background: linear-gradient(135deg, #ffd700, #f39c12);
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            animation: pulse-badge 1.5s infinite;
+        }
+        @keyframes pulse-badge {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .fruit-merge-card.can-merge {
+            border: 2px solid #ffd700;
+            background: rgba(255,215,0, 0.1);
+        }
+        .fruit-merge-card.can-merge:hover {
+            background: rgba(255,215,0, 0.2);
+            transform: translateX(5px);
+        }
+        
+        /* Merge Fruit Modal */
+        .merge-fruit-modal {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 30px;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.1);
+            position: relative;
+            animation: modal-pop 0.3s ease-out;
+        }
+        @keyframes modal-pop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .merge-fruit-header {
+            margin-bottom: 25px;
+        }
+        .big-fruit-icon {
+            font-size: 5rem;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+        }
+        .merge-fruit-header h3 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: #fff;
+        }
+        .fruit-level {
+            color: #888;
+            margin: 5px 0 0 0;
+        }
+        .merge-fruit-stats {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .success { color: #00fa9a; font-weight: bold; }
+        .stat-row .warning { color: #ff4444; font-weight: bold; }
+        
+        /* Not Enough State */
+        .merge-not-enough {
+            padding: 20px;
+        }
+        .not-enough-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        .merge-not-enough p {
+            margin: 5px 0;
+            color: #ff6b6b;
+        }
+        .need-more {
+            color: #ffd700 !important;
+            font-size: 1.1rem;
+        }
+        .progress-bar {
+            background: rgba(255,255,255,0.1);
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 15px 0 5px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff6b6b);
+            border-radius: 6px;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        /* Ready to Merge State */
+        .merge-ready {
+            padding: 20px;
+        }
+        .ready-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            animation: sparkle 1s infinite;
+        }
+        @keyframes sparkle {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-10deg) scale(1.1); }
+            75% { transform: rotate(10deg) scale(1.1); }
+        }
+        .merge-ready p {
+            margin: 5px 0;
+            color: #00fa9a;
+        }
+        .merge-info {
+            color: #888 !important;
+            font-size: 0.9rem;
+        }
+        .tx-status-inline {
+            color: #ffd700;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .merge-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .merge-btn {
+            padding: 16px 24px;
+            min-height: 52px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .merge-btn.primary {
+            background: linear-gradient(135deg, #ffd700, #f39c12);
+            color: #000;
+        }
+        .merge-btn.primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+        .merge-btn.secondary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        .merge-btn.secondary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+        .merge-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Success Modal */
+        .success-modal {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 40px;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            border: 2px solid #ffd700;
+            position: relative;
+            animation: success-pop 0.5s ease-out;
+            overflow: hidden;
+        }
+        @keyframes success-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .success-confetti {
+            font-size: 2rem;
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: confetti-bounce 0.5s ease-out;
+        }
+        @keyframes confetti-bounce {
+            0% { transform: translateX(-50%) translateY(-50px); opacity: 0; }
+            100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        .success-fruit-display {
+            position: relative;
+            margin: 20px 0;
+        }
+        .giant-fruit {
+            font-size: 8rem;
+            animation: fruit-bounce 1s ease-out;
+            filter: drop-shadow(0 10px 30px rgba(255,215,0,0.5));
+        }
+        @keyframes fruit-bounce {
+            0% { transform: scale(0) rotate(-180deg); }
+            60% { transform: scale(1.2) rotate(10deg); }
+            80% { transform: scale(0.9) rotate(-5deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .success-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%);
+            animation: glow-pulse 2s infinite;
+            z-index: -1;
+        }
+        @keyframes glow-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+        }
+        .success-modal h2 {
+            color: #ffd700;
+            margin: 10px 0;
+            font-size: 1.8rem;
+        }
+        .success-text {
+            color: #fff;
+            font-size: 1.1rem;
+            margin: 10px 0;
+        }
+        .legendary-tip {
+            color: #ffd700;
+            font-size: 0.9rem;
+            margin: 15px 0;
+        }
+        .success-close-btn {
+            padding: 16px 40px;
+            min-height: 52px;
+            background: linear-gradient(135deg, #00fa9a, #00c87a);
+            color: #000;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.2s;
+        }
+        .success-close-btn:hover {
+            filter: brightness(1.1);
+            transform: scale(1.05);
         }
       `}</style>
     </div>

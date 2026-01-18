@@ -11,7 +11,7 @@
   cursor: url('/cursor-default.png') 0 0, auto;
 }
 
-/* Các thành phần có thể tương tác */
+/* Các thành phần có thể tương tác - with larger touch targets */
 button, 
 a, 
 .slot, 
@@ -24,6 +24,36 @@ a,
 .select-mode-btn,
 .upgrade-btn {
   cursor: url('/cursor-pointer.png') 0 0, pointer !important;
+}
+
+/* Global larger click/touch targets for accessibility */
+a, 
+.clickable,
+.filter-pill,
+.filter-btn,
+.land-tab,
+.tool-btn,
+.nft-card,
+.inventory-item-large,
+.fruit-merge-card {
+  min-height: 44px;
+  min-width: 44px;
+  position: relative;
+}
+
+/* Invisible expanded hit area for small clickables */
+a::before,
+.filter-pill::before,
+.filter-btn::before,
+.land-tab::before,
+.tool-btn::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  z-index: 1;
 }
 
 /* Trạng thái đang kéo/thả hoặc click - Áp dụng toàn trang */

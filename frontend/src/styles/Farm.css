@@ -45,6 +45,8 @@
 /* Từng ô đất đơn lẻ (Slot Card) */
 .slot {
   aspect-ratio: 1; 
+  min-height: 140px; /* Bigger click area for easier interaction */
+  min-width: 140px;
   border-radius: 24px;
   display: flex;
   flex-direction: column;
@@ -56,7 +58,7 @@
   overflow: hidden;
   background: rgba(255, 255, 255, 0.1); 
   border: 4px solid rgb(160, 160, 160); /* Đổi sang màu xám theo yêu cầu */
-  padding: 1rem;
+  padding: 1.2rem;
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
   color: white; 
 }
@@ -130,7 +132,8 @@
 }
 
 .land-tab {
-  padding: 8px 16px;
+  padding: 12px 20px;
+  min-height: 48px;
   border: 3px solid transparent;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.1);
@@ -157,8 +160,9 @@
 }
 
 .land-actions button {
-  padding: 0.8rem 1.2rem;
-  font-size: 0.9rem;
+  padding: 1rem 1.5rem;
+  min-height: 52px;
+  font-size: 0.95rem;
   background: #34495e; /* Màu mặc định */
   border: 3px solid #fff;
   box-shadow: 0 5px 0 #2c3e50;
@@ -353,7 +357,8 @@
 }
 
 .tool-btn {
-  padding: 0.6rem 1rem;
+  padding: 0.8rem 1.2rem;
+  min-height: 48px;
   border-radius: 12px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.1);
@@ -361,7 +366,7 @@
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .tool-btn:hover {

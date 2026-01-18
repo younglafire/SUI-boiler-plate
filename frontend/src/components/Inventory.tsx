@@ -55,9 +55,10 @@ interface InventoryProps {
   refreshTrigger?: number
   onUpdate?: () => void
   playerSeeds?: number
+  onRequestMerge?: (fruitType: number) => void
 }
 
-export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playerSeeds = 0 }: InventoryProps) {
+export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playerSeeds = 0, onRequestMerge }: InventoryProps) {
   const account = useCurrentAccount()
   const suiClient = useSuiClient()
   const { mutate: signAndExecute, isPending: isTxPending } = useSponsoredTransaction()
@@ -71,6 +72,7 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [actionFruit, setActionFruit] = useState<InventoryFruit | null>(null)
 
   useEffect(() => {
     async function fetchInventory() {
@@ -156,6 +158,44 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
     } else {
       setSelectedIndices(visibleIndices)
     }
+  }
+
+  const openActionModal = (fruit: InventoryFruit) => {
+    setActionFruit(fruit)
+  }
+
+  const closeActionModal = () => {
+    setActionFruit(null)
+  }
+
+  const handleMintSingle = async (fruit: InventoryFruit) => {
+    if (!account?.address || !inventoryId) return
+    setTxStatus('💎 Minting 1 NFT...')
+    try {
+      const tx = new Transaction()
+      tx.moveCall({ target: `${PACKAGE_ID}::fruit_nft::mint_from_inventory`, arguments: [tx.object(inventoryId), tx.pure.u64(fruit.originalIndex)] })
+
+      signAndExecute({ transaction: tx }, {
+        onSuccess: async (result) => {
+          await suiClient.waitForTransaction({ digest: result.digest })
+          setTxStatus('✅ NFT minted!')
+          onUpdate?.()
+          setActionFruit(null)
+          setTimeout(() => setTxStatus(''), 3000)
+        },
+        onError: (error) => {
+          setTxStatus('❌ Mint Failed: ' + error.message)
+          setTimeout(() => setTxStatus(''), 5000)
+        }
+      })
+    } catch (err) {
+      setTxStatus('❌ Error creating transaction')
+    }
+  }
+
+  const handleMergeAction = (fruit: InventoryFruit) => {
+    onRequestMerge?.(fruit.fruit_type)
+    setActionFruit(null)
   }
 
   const handleBatchMint = async () => {
@@ -304,7 +344,13 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
                     transform: isSelected ? 'scale(0.96)' : 'none',
                     opacity: isSelectionMode && !isSelected ? 0.6 : 1
                   }}
-                  onClick={() => toggleSelection(fruit.originalIndex)}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelection(fruit.originalIndex)
+                    } else {
+                      openActionModal(fruit)
+                    }
+                  }}
                 >
                   {isSelectionMode && <div className={`checkbox ${isSelected ? 'checked' : ''}`}>{isSelected && '✓'}</div>}
                   <div className="item-icon-large"><img src={fruitInfo?.image} alt={fruitInfo?.name} className="fruit-img-large" /></div>
@@ -328,6 +374,33 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
           )}
         </>
       )}
+
+        {actionFruit && !isSelectionMode && (
+          <div className="modal-overlay" onClick={closeActionModal}>
+            <div className="action-modal" onClick={e => e.stopPropagation()}>
+              <button className="close-btn" onClick={closeActionModal}>×</button>
+              <div className="action-modal-body">
+                <div className="action-fruit-visual">
+                  <img src={FRUITS.find(f => f.level === actionFruit.fruit_type)?.image} className="fruit-img-large" />
+                </div>
+                <div className="action-fruit-info">
+                  <h3>{FRUITS.find(f => f.level === actionFruit.fruit_type)?.name}</h3>
+                  <div className="chips">
+                    <span className="chip" style={{ backgroundColor: getRarityColor(actionFruit.rarity) }}>{getRarityName(actionFruit.rarity)}</span>
+                    <span className="chip weight">{actionFruit.weight >= 1000 ? `${(actionFruit.weight / 1000).toFixed(2)}kg` : `${actionFruit.weight}g`}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="action-buttons">
+                <button className="merge-action-btn" onClick={() => handleMergeAction(actionFruit)}>🔄 Merge in Market</button>
+                <button className="mint-action-btn" disabled={isTxPending} onClick={() => handleMintSingle(actionFruit)}>
+                  {isTxPending ? '⏳ Minting...' : '💎 Mint NFT'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       <style>{`
         .inventory-container { padding: 20px; }
         
@@ -463,6 +536,68 @@ export default function Inventory({ inventoryId, refreshTrigger, onUpdate, playe
         
         .checkbox { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: transparent; z-index: 5; transition: all 0.2s; }
         .checkbox.checked { background: #2ecc71; border-color: #fff; color: white; box-shadow: 0 0 10px #2ecc71; transform: scale(1.1); }
+
+        /* Action Modal */
+        .action-modal {
+          background: linear-gradient(135deg, #1a1a2e, #16213e);
+          padding: 24px;
+          border-radius: 16px;
+          width: 90%;
+          max-width: 420px;
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+          position: relative;
+          color: #fff;
+        }
+        .action-modal .close-btn {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          background: transparent;
+          border: none;
+          color: #888;
+          font-size: 1.4rem;
+          cursor: pointer;
+        }
+        .action-modal-body {
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        .action-fruit-visual {
+          width: 120px;
+          height: 120px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+        .action-fruit-info h3 { margin: 0 0 6px 0; }
+        .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip {
+          padding: 6px 10px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 0.85rem;
+          color: #fff;
+        }
+        .chip.weight { background: #e67e22; }
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .merge-action-btn, .mint-action-btn {
+          padding: 14px 16px;
+          border-radius: 12px;
+          border: none;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .merge-action-btn { background: linear-gradient(135deg, #ffd700, #f39c12); color: #000; }
+        .mint-action-btn { background: linear-gradient(135deg, #00c6ff, #0072ff); color: #fff; }
+        .merge-action-btn:hover, .mint-action-btn:hover { filter: brightness(1.05); transform: translateY(-2px); }
+        .mint-action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         
         @media (max-width: 1000px) { .inventory-grid-large { grid-template-columns: repeat(3, 1fr); } }  
         @media (max-width: 600px) { .inventory-grid-large { grid-template-columns: repeat(2, 1fr); } }   

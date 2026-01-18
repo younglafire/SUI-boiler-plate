@@ -50,6 +50,8 @@ function App() {
   const [playerSeeds, setPlayerSeeds] = useState(0)
   const [seedScale, setSeedScale] = useState<bigint>(1_000_000_000n)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [mergeFruitType, setMergeFruitType] = useState<number | null>(null)
+  const [mergeTrigger, setMergeTrigger] = useState(0)
   
   const [isGameActive, setIsGameActive] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
@@ -121,6 +123,12 @@ function App() {
     } else {
       setActiveTab(newTab)
     }
+  }
+
+  const handleInventoryMergeRequest = (fruitType: number) => {
+    setMergeFruitType(fruitType)
+    setMergeTrigger(prev => prev + 1)
+    setActiveTab('market')
   }
 
   const confirmTabChange = () => {
@@ -280,14 +288,14 @@ function App() {
                   case 'land':
                     return <PlayerLand landId={landId} inventoryId={inventoryId} playerSeeds={playerSeeds} seedScale={seedScale} onDataChanged={loadUserObjects} />
                   case 'market':
-                    return <Market inventoryId={inventoryId} onUpdate={loadUserObjects} refreshTrigger={refreshTrigger} playerSeeds={playerSeeds} />
+                    return <Market inventoryId={inventoryId} onUpdate={loadUserObjects} refreshTrigger={refreshTrigger} playerSeeds={playerSeeds} initialMergeFruitType={mergeFruitType} mergeTrigger={mergeTrigger} />
                   case 'leaderboard':
                     return <Leaderboard inventoryId={inventoryId} onUpdate={loadUserObjects} />
                   case 'collection':
                     return <NFTCollection />
                   case 'inventory':
                   default:
-                    return <Inventory inventoryId={inventoryId} refreshTrigger={refreshTrigger} onUpdate={loadUserObjects} playerSeeds={playerSeeds} />
+                    return <Inventory inventoryId={inventoryId} refreshTrigger={refreshTrigger} onUpdate={loadUserObjects} playerSeeds={playerSeeds} onRequestMerge={handleInventoryMergeRequest} />
                 }
               })()}
             </main>

@@ -80,7 +80,8 @@
 
 .btn-buy-market {
   width: 100%;
-  padding: 12px;
+  padding: 14px 16px;
+  min-height: 52px; /* Larger click target */
   background: linear-gradient(135deg, #feca57, #f39c12);
   color: #000;
   border-radius: 14px;

@@ -96,7 +96,8 @@
 .filter-btn {
   background: #34495e;
   border: 2px solid #2c3e50;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
+  min-height: 48px;
   border-radius: 12px;
   color: #bdc3c7;
   cursor: pointer;
@@ -122,15 +123,16 @@
    =================================================== */
 .inventory-grid {
   display: grid;
-  /* Tăng kích thước tối thiểu của ô lên 165px để khung to và rõ nét hơn */
-  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); 
+  /* Tăng kích thước tối thiểu của ô lên 180px để khung to và rõ nét hơn */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
   gap: 1.5rem;
 }
 
 .inventory-item {
   background: #fff9e3;
   border-radius: 24px;
-  padding: 0.8rem; /* Tăng lại padding một chút cho cân đối với khung to */
+  padding: 1rem; /* Larger padding for easier clicking */
+  min-height: 180px; /* Minimum click target size */
   text-align: center;
   border: 4px solid #e6d5b8;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
